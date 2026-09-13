@@ -56,5 +56,4 @@ The use of the code is permitted for study and reference, provided that the sour
 ## Author
 
 **Cristian Camilo Vergara Restrepo**
-
 Physics Student – Universidad de Antioquia
