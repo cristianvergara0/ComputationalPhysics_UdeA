@@ -22,6 +22,9 @@ It includes Jupyter notebooks, data files, and visualizations covering different
 * **Introduction to Nuclear Physics/**
   Models and calculations in nuclear physics (e.g., radioactive decay, relativistic kinematics, and the semi-empirical mass formula).
 
+* **Magnetism Fundamentals/**
+  2D $J_1$–$J_2$ antiferromagnetic Ising model simulations via Monte Carlo (Metropolis algorithm with Numba acceleration and process-level parallelism): phase transitions, stripe order parameter, boundary conditions (PBC vs. FBC), and the magnetocaloric effect ($\Delta S_M$).
+
 * **Probability and Statistics/**
   Notebooks on statistical inference, probability distributions, and regression.
 
@@ -42,7 +45,7 @@ It includes Jupyter notebooks, data files, and visualizations covering different
 
 * Python 3.x
 * Jupyter Notebook
-* Scientific libraries: `numpy`, `scipy`, `matplotlib`, `numba`
+* Scientific libraries: `numpy`, `scipy`, `matplotlib`, `numba`, `seaborn`, `pandas`
 
 ---
 
