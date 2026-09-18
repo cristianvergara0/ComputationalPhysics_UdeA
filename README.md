@@ -23,7 +23,7 @@ It includes Jupyter notebooks, data files, and visualizations covering different
   Models and calculations in nuclear physics (e.g., radioactive decay, relativistic kinematics, and the semi-empirical mass formula).
 
 * **Magnetism Fundamentals/**
-  2D $J_1$–$J_2$ antiferromagnetic Ising model simulations via Monte Carlo (Metropolis algorithm with Numba acceleration and process-level parallelism): phase transitions, stripe order parameter, boundary conditions (PBC vs. FBC), and the magnetocaloric effect ($\Delta S_M$).
+  2D J<sub>1</sub>–J<sub>2</sub> antiferromagnetic Ising model simulations via Monte Carlo (Metropolis algorithm with Numba acceleration and process-level parallelism): phase transitions, stripe order parameter, boundary conditions (PBC vs. FBC), and the magnetocaloric effect (&Delta;S<sub>M</sub>).
 
 * **Probability and Statistics/**
   Notebooks on statistical inference, probability distributions, and regression.
