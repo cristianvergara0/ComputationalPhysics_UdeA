@@ -20,7 +20,7 @@ It includes Jupyter notebooks, data files, and visualizations covering different
   Experimental projects with computational modeling (e.g., Boltzmann's constant, absorption spectrum of lager-type beers, and the photoelectric effect).
 
 * **Introduction to Nuclear Physics/**
-  Models and calculations in nuclear physics (e.g., radioactive decay, relativistic kinematics, and the semi-empirical mass formula).
+  Models and calculations in nuclear physics (e.g., radioactive decay, relativistic kinematics, the semi-empirical mass formula, and the Coulomb radius from mirror nuclei).
 
 * **Magnetism Fundamentals/**
   2D J<sub>1</sub>–J<sub>2</sub> antiferromagnetic Ising model simulations via Monte Carlo (Metropolis algorithm with Numba acceleration and process-level parallelism): phase transitions, stripe order parameter, boundary conditions (PBC vs. FBC), and the magnetocaloric effect (&Delta;S<sub>M</sub>).
@@ -29,7 +29,7 @@ It includes Jupyter notebooks, data files, and visualizations covering different
   Notebooks on statistical inference, probability distributions, and regression.
 
 * **Theoretical Mechanics II/**
-  Advanced simulations in theoretical mechanics (e.g., magnetic pendulum, Magnus effect, and relativistic harmonic oscillator).
+  Advanced simulations in theoretical mechanics (e.g., magnetic pendulum, Magnus effect, relativistic harmonic oscillator, and Lagrangian/Hamiltonian analysis of electrical circuits).
 
 ---
 
@@ -45,7 +45,7 @@ It includes Jupyter notebooks, data files, and visualizations covering different
 
 * Python 3.x
 * Jupyter Notebook
-* Scientific libraries: `numpy`, `scipy`, `matplotlib`, `numba`, `seaborn`, `pandas`
+* Scientific libraries: `numpy`, `scipy`, `matplotlib`, `numba`, `pandas`, `seaborn`, `scikit-learn`, `sympy`, `Pillow`, `tabulate`
 
 ---
 
