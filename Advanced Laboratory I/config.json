@@ -1,0 +1,52 @@
+{
+  "_ayuda": [
+    "Configuración de spring_magnet_analyzer.py. Edita los valores y ejecuta: python spring_magnet_analyzer.py",
+    "Escribe null en los datos que no conozcas. Las claves que empiezan con guion bajo son comentarios y se ignoran.",
+    "Los números van sin comillas y con punto decimal. Las rutas relativas se cuentan desde la carpeta de este archivo.",
+    "En Windows escribe las rutas con barras normales, por ejemplo C:/datos/medicion_raw_20260204_151040.csv"
+  ],
+  "fuente": {
+    "_ayuda": "tipo: demo (datos simulados), archivo (registro medicion_raw_<fecha>.csv ya guardado) o serie (adquirir ahora con el ESP32).",
+    "tipo": "demo",
+    "archivo": null,
+    "fs_Hz": null,
+    "puerto": "COM10",
+    "baudrate": 115200,
+    "muestras": 40000
+  },
+  "adc": {
+    "_ayuda": "v_ref_V es la referencia nominal del ADC. Para calibrar, aplica una tensión continua conocida (v_cal_V, medida con un multímetro) y anota la lectura media del ADC (adc_cal_cuentas).",
+    "v_ref_V": 3.3,
+    "v_cal_V": null,
+    "adc_cal_cuentas": null
+  },
+  "montaje": {
+    "_ayuda": "Lo que conoces del montaje; null en lo que no. masa_g es la masa que oscila (imán y soporte), sin el resorte. Con la masa, o con k, o con b, el programa calcula las otras dos. Estos valores son los del simulador: cámbialos por los de tu montaje.",
+    "vueltas": 3400,
+    "radio_mm": 41.5,
+    "masa_g": 200,
+    "masa_resorte_g": null,
+    "k_N_m": null,
+    "b_kg_s": null
+  },
+  "analisis": {
+    "_ayuda": "Opcional. Son los valores con los que se validó el análisis; cámbialos solo si el registro lo exige.",
+    "f_min_Hz": 0.2,
+    "kernel_mediano": 101,
+    "umbral_sigma": 2.5,
+    "frac_prominencia": 0.04
+  },
+  "demo": {
+    "_ayuda": "Solo con tipo demo: amplitud inicial y altura del equilibrio sobre la bobina de la oscilación simulada, zona muerta del ADC simulado y semilla del ruido.",
+    "amplitud_mm": 12,
+    "altura_mm": 35,
+    "zona_muerta_mV": 0,
+    "semilla": 1
+  },
+  "salida": {
+    "_ayuda": "Cada ejecución crea una subcarpeta con la fecha y la hora dentro de carpeta.",
+    "carpeta": "resultados",
+    "graficas": true,
+    "mostrar_graficas": false
+  }
+}

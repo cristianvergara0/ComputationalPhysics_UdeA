@@ -1,0 +1,5 @@
+numpy
+scipy
+matplotlib
+# Solo para adquirir datos con el ESP32 (fuente "serie"); no hace falta para analizar archivos ni para la demo:
+# pyserial

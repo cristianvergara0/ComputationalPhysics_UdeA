@@ -1,0 +1,27 @@
+{
+  "timestamp": "simulado",
+  "fs_est_Hz": 1000.0,
+  "n_muestras": 40000,
+  "fuente": "simulacion",
+  "nota": "Registro simulado con spring_magnet_analyzer.py. No son mediciones reales.",
+  "verdad_simulador": {
+    "masa_kg": 0.2,
+    "k_N_m": 16.6,
+    "b_kg_s": 0.0088,
+    "gamma_1_s": 0.022,
+    "omega0_rad_s": 9.1104335791443,
+    "omega1_rad_s": 9.110407016154657,
+    "f0_Hz": 1.4499663102000984,
+    "Q": 207.0553086169159,
+    "vueltas": 3400,
+    "radio_m": 0.0415,
+    "integral_emf_Vs": 0.05157331051870937,
+    "B_T": 0.002803496554837067,
+    "momento_dipolar_Am2": 2.6687161817915563,
+    "altura_m": 0.035,
+    "amplitud_m": 0.012,
+    "V_scale_V_per_count": 0.0008058608058608059,
+    "zona_muerta_V": 0.0,
+    "offset_V": 0.0
+  }
+}
