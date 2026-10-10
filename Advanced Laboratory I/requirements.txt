@@ -1,5 +1,5 @@
-numpy
-scipy
+numpy>=1.17
+scipy>=1.6
 matplotlib
-# Solo para adquirir datos con el ESP32 (fuente "serie"); no hace falta para analizar archivos ni para la demo:
+# Solo para capturar datos con el ESP32 (fuente "serie"); no hace falta para analizar archivos ni para la demo:
 # pyserial

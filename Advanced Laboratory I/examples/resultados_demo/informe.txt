@@ -4,28 +4,33 @@
 Registro: 40000 muestras, 40.0 s, fs = 1000.00 Hz (fuente: simulación)
 
 Medido en el registro
-  frecuencia f0                                    1.450 +/- 0.025 Hz    FWHM / 2
+  frecuencia f0                                    1.450 +/- 0.025 Hz    resolución, FWHM / 2
   gamma, área de los lóbulos (*)           0.0218696 +/- 0.0000071 1/s   R2 = 1.0000
   gamma, altura de los pulsos                0.023120 +/- 0.000078 1/s   R2 = 0.9995, 49 picos
   integral de la fem del lóbulo mayor      0.0515775 +/- 0.0000090 V*s   t = 0.34 a 0.69 s
   (*) valor de gamma que se usa en los cálculos siguientes
 
 Deducido solo de la medición
-  omega0                                                     9.111 rad/s
-  factor de calidad Q                            208.295 +/- 0.068
-  decremento logarítmico                   0.0150825 +/- 0.0000049
+  omega0                                             9.11 +/- 0.16 rad/s
+  factor de calidad Q                                208.3 +/- 3.6
+  decremento logarítmico                       0.01508 +/- 0.00026
   tiempo de decaimiento de la amplitud            45.726 +/- 0.015 s
 
 Con los datos del montaje
   masa efectiva                                                0.2 kg    dada
-  constante del resorte k                                     16.6 N/m   m * omega0^2
+  constante del resorte k                           16.60 +/- 0.58 N/m   m * omega0^2
   coeficiente de amortiguamiento b         0.0087478 +/- 0.0000028 kg/s  2 m gamma
   variación de flujo por vuelta          (1.51699 +/- 0.00027)e-05 Wb    integral / N
-  campo magnético medio B                      2.80372 +/- 0.00049 mT    solo ruido de lectura
+  variación del campo medio B_eq               2.80372 +/- 0.00049 mT    solo ruido de lectura
+  B_eq es la variación del campo medio sobre la bobina entre los dos extremos
+  de la oscilación: crece con la amplitud y no es el campo del imán en un
+  punto.
 
-Las incertidumbres son estadísticas. No incluyen la calibración del ADC, los
-valores de N y del radio, la falta de uniformidad del campo sobre la bobina ni
-un posible cambio de forma de los pulsos.
+La incertidumbre de f0 es la resolución espectral y se propaga a omega0, Q, el
+decremento logarítmico y k; las demás son estadísticas, del ajuste o del ruido
+de lectura. Ninguna incluye la calibración del ADC, los valores de N y del
+radio, la falta de uniformidad del campo sobre la bobina ni un posible cambio
+de forma de los pulsos.
 
 Comparación con los valores verdaderos del simulador
   magnitud                       calculado     verdadero  diferencia
@@ -36,4 +41,4 @@ Comparación con los valores verdaderos del simulador
   k (N/m)                           16.601          16.6       +0.0 %
   b (kg/s)                       0.0087478        0.0088       -0.6 %
   integral de la fem (V*s)        0.051578      0.051573       +0.0 %
-  B (T)                          0.0028037     0.0028035       +0.0 %
+  B_eq (T)                       0.0028037     0.0028035       +0.0 %

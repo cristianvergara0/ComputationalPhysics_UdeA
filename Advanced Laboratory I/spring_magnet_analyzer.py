@@ -4,11 +4,12 @@
 
 Un imán sujeto a un resorte oscila sobre una bobina. La fem inducida se digitaliza con un ESP32 y este
 programa extrae del registro la frecuencia de oscilación, el coeficiente de amortiguamiento y una estimación
-del campo magnético. Con los datos del montaje que se conozcan (vueltas y radio de la bobina, masa, constante
+de la variación del campo medio. Con los datos del montaje que se conozcan (vueltas y radio de la bobina, masa, constante
 del resorte) calcula además el resto de las magnitudes que se pueden deducir.
 
 Uso:
     1. Edita config.json, que está junto al script: fuente de los datos y lo que conozcas del montaje.
+       Con el ESP32 conectado ("tipo": "serie"), 'fuente.duracion_s' fija cuántos segundos dura la captura.
     2. Ejecuta:  python spring_magnet_analyzer.py
     Los resultados se guardan en una subcarpeta nueva de resultados/ con la fecha y la hora.
 
@@ -45,7 +46,7 @@ try:
 except ImportError:
     serial = None
 
-__version__ = "1.0"
+__version__ = "1.1"
 
 # ---------------------------------------------------------------------------
 # Constantes
@@ -66,8 +67,11 @@ PICO_ESPECTRAL_MIN = 10.0     # Cociente mínimo pico / mediana del espectro par
 UMBRAL_DISCREPANCIA = 0.10    # Tolerancia del cociente gamma(altura) / gamma(área)
 ANCHO_RELATIVO_MIN = 0.75     # Duración mínima del lóbulo, en fracción del medio periodo
 UMBRAL_SUBARMONICO = 0.15     # Amplitud relativa en f0/2 a partir de la cual se avisa
+FRAC_NEGATIVOS_MAX = 0.20     # Un registro es unipolar si su parte negativa no llega a esta fracción del máximo
 TOLERANCIA_CHEQUEO = 0.10     # Diferencia relativa a partir de la cual dos valores "no concuerdan"
-PUERTO_DEFECTO = "COM10" if os.name == "nt" else "/dev/ttyUSB0"
+DURACION_DEFECTO = 40.0       # s. Duración por defecto de un registro
+CUENTA_REGRESIVA_DEFECTO = 5.0   # s. Aviso previo a una captura con el ESP32
+FS_SIMULADOR = 1000.0         # Hz. Frecuencia de muestreo del registro simulado
 
 
 class ErrorAnalisis(Exception):
@@ -102,12 +106,14 @@ class Configuracion:
     fuente: str = "demo"                    # demo | archivo | serie
     archivo: Optional[Path] = None
     fs: Optional[float] = None              # Hz. Solo si el archivo no tiene su meta_<fecha>.json
-    puerto: str = PUERTO_DEFECTO
+    puerto: Optional[str] = None            # None: se usa el único puerto serie disponible
     baudrate: int = 115200
-    muestras: int = 40000
+    duracion: float = DURACION_DEFECTO      # s. Duración del registro (simulado o capturado con el ESP32)
+    cuenta_regresiva: float = CUENTA_REGRESIVA_DEFECTO   # s. Aviso previo a la captura con el ESP32
     v_ref: float = V_REF_NOMINAL
     v_cal: Optional[float] = None           # V. Tensión conocida para calibrar el ADC
     adc_cal: Optional[float] = None         # Cuentas leídas con esa tensión
+    puntos_cal: Optional[list] = None       # Pares (V, cuentas) de una calibración con varias tensiones
     montaje: Montaje = field(default_factory=Montaje)
     analisis: OpcionesAnalisis = field(default_factory=OpcionesAnalisis)
     demo_amplitud: float = 0.012            # m
@@ -132,55 +138,84 @@ def listar_puertos():
         return []
 
 
-def acquire_trial(trial_label=None, n_samples=40000, puerto=PUERTO_DEFECTO, baudrate=115200, wait_before=1.0):
-    """Adquiere un registro del ADC del ESP32 a través del puerto serie.
+_MENSAJE_PYSERIAL = "Para adquirir datos hace falta pyserial: pip install pyserial"
+
+
+def elegir_puerto(puerto=None):
+    """Puerto serie que se usará: el indicado o, si no se indicó ninguno, el único que haya disponible."""
+    if serial is None:
+        raise ErrorAnalisis(_MENSAJE_PYSERIAL)
+    if puerto:
+        return puerto
+    disponibles = listar_puertos()
+    if len(disponibles) == 1:
+        return disponibles[0]
+    if not disponibles:
+        raise ErrorAnalisis("No se detectó ningún puerto serie. Conecta el ESP32 por USB, revisa que su driver esté "
+                            "instalado o escribe el puerto en 'fuente.puerto' del config.json.")
+    raise ErrorAnalisis(f"Hay varios puertos serie ({', '.join(disponibles)}). Escribe el del ESP32 en "
+                        "'fuente.puerto' del config.json.")
+
+
+def adquirir_registro(duracion=DURACION_DEFECTO, puerto=None, baudrate=115200, cuenta_regresiva=0.0,
+                      espera_apertura=1.0, etiqueta=None):
+    """Adquiere un registro del ADC del ESP32 a través del puerto serie durante `duracion` segundos.
 
     Parámetros
     ----------
-    trial_label : str, opcional
-        Nombre del ensayo; solo aparece en los mensajes.
-    n_samples : int
-        Número de líneas (muestras) que se leen.
+    duracion : float
+        Segundos que dura la captura. Se leen líneas hasta que se cumple ese tiempo; cuántas llegan depende de la
+        velocidad del sketch (unas 900 por segundo con el sketch incluido).
     puerto, baudrate : str, int
-        Puerto serie y velocidad; deben coincidir con los del sketch del ESP32.
-    wait_before : float
+        Puerto serie y velocidad; deben coincidir con los del sketch del ESP32. Sin puerto se usa el único que
+        haya disponible.
+    cuenta_regresiva : float
+        Segundos de aviso antes de capturar, para preparar el imán. Se redondea hacia arriba a segundos enteros.
+    espera_apertura : float
         Espera (s) tras abrir el puerto. Abrirlo reinicia el ESP32, que necesita unos instantes para transmitir.
+    etiqueta : str, opcional
+        Nombre del ensayo; solo aparece en los mensajes.
 
     Devuelve
     --------
     t_sec : ndarray, s
         Instante de cada muestra, t_k = k / fs_est con k = 0, 1, ...
-    voltajes : ndarray, cuentas del ADC (0 a 4095)
-        Lecturas del ADC; NaN en las líneas que no se pudieron interpretar.
+    cuentas : ndarray, cuentas del ADC (0 a 4095)
+        Lecturas del ADC; NaN en las líneas que no se pudieron interpretar o que quedan fuera de 0 a 4095.
     fs_est : float, Hz
-        Frecuencia de muestreo efectiva, n_samples / duración de la captura.
+        Frecuencia de muestreo efectiva, número de muestras / duración real de la captura.
     tiempo_idx : ndarray
-        Índice de muestra, de 1 a n_samples.
+        Índice de muestra, de 1 a n.
 
     Se supone que las muestras son equiespaciadas. Si el ESP32 deja de transmitir, la captura se aborta con un
     error en lugar de esperar el tiempo de espera de cada muestra restante.
     """
-    if serial is None:
-        raise ErrorAnalisis("Para adquirir datos hace falta pyserial: pip install pyserial")
+    puerto = elegir_puerto(puerto)
     max_lecturas_vacias = 3   # Tiempos de espera consecutivos tras los que se da por perdida la conexión
-    etiqueta = f" '{trial_label}'" if trial_label else ""
+    texto_etiqueta = f" '{etiqueta}'" if etiqueta else ""
     try:
         ser = serial.Serial(puerto, baudrate, timeout=2)
     except Exception as e:
         disponibles = ", ".join(listar_puertos()) or "ninguno detectado"
         raise ErrorAnalisis(f"No se pudo abrir {puerto}: {e}\nPuertos disponibles: {disponibles}") from e
+    lecturas = []
     try:
-        print(f"Ensayo{etiqueta}: conectado a {puerto}. Esperando {wait_before} s...")
-        time.sleep(wait_before)
+        print(f"Ensayo{texto_etiqueta}: conectado a {puerto}. Esperando {espera_apertura:g} s...", flush=True)
+        time.sleep(espera_apertura)
+        for restante in range(int(math.ceil(cuenta_regresiva)), 0, -1):
+            print(f"La captura empieza en {restante} s...", flush=True)
+            time.sleep(1.0)
         ser.reset_input_buffer()
         ser.readline()   # Tras vaciar el búfer la primera línea puede llegar truncada: se descarta
 
-        voltajes = np.full(n_samples, np.nan)
+        print(f"Capturando durante {duracion:g} s. Pon a oscilar el imán ahora.", flush=True)
         vacias_seguidas = 0
-        print(f"Iniciando captura de {n_samples} muestras...")
-        t_start = time.perf_counter()   # Reloj monótono: no le afectan los ajustes de la hora del sistema
-        for k in range(n_samples):
+        proximo_aviso = 10.0
+        transcurrido = 0.0
+        t_inicio = time.perf_counter()   # Reloj monótono: no le afectan los ajustes de la hora del sistema
+        while transcurrido < duracion:
             linea = ser.readline().decode("utf-8", errors="ignore").strip()
+            transcurrido = time.perf_counter() - t_inicio
             if not linea:
                 vacias_seguidas += 1
                 if vacias_seguidas >= max_lecturas_vacias:
@@ -188,16 +223,22 @@ def acquire_trial(trial_label=None, n_samples=40000, puerto=PUERTO_DEFECTO, baud
                 continue
             vacias_seguidas = 0
             try:
-                voltajes[k] = float(linea)
+                valor = float(linea)
             except ValueError:
-                pass   # Línea corrupta: la muestra queda como NaN y se interpola más adelante
-        duracion = time.perf_counter() - t_start
+                valor = math.nan   # Línea corrupta: la muestra queda como NaN y se interpola más adelante
+            lecturas.append(valor if 0.0 <= valor <= ADC_MAX else math.nan)
+            if proximo_aviso <= transcurrido < duracion:
+                print(f"  {transcurrido:.0f} s", flush=True)
+                proximo_aviso += 10.0
     finally:
         ser.close()
 
-    fs_est = n_samples / duracion
-    print(f"Captura terminada: {duracion:.2f} s, fs estimada = {fs_est:.2f} Hz")
-    return np.arange(n_samples) / fs_est, voltajes, fs_est, np.arange(1, n_samples + 1)
+    n = len(lecturas)
+    if n == 0:
+        raise ErrorAnalisis("No llegó ninguna lectura del ESP32.")
+    fs_est = n / transcurrido
+    print(f"Captura terminada: {transcurrido:.2f} s, {n} lecturas, fs estimada = {fs_est:.2f} Hz")
+    return np.arange(n) / fs_est, np.array(lecturas, dtype=float), fs_est, np.arange(1, n + 1)
 
 
 def buscar_fs_en_meta(ruta_raw):
@@ -225,7 +266,7 @@ def cargar_registro(ruta_raw, fs=None):
 
     Devuelve
     --------
-    Las mismas cuatro magnitudes que `acquire_trial`: t_sec (s), voltajes (cuentas), fs_est (Hz) y tiempo_idx.
+    Las mismas cuatro magnitudes que `adquirir_registro`: t_sec (s), cuentas, fs_est (Hz) y tiempo_idx.
     """
     if not os.path.exists(ruta_raw):
         raise ErrorAnalisis(f"No existe el archivo {ruta_raw}")
@@ -233,7 +274,7 @@ def cargar_registro(ruta_raw, fs=None):
     if datos.ndim != 2 or datos.shape[1] != 2:
         raise ErrorAnalisis(f"{ruta_raw} debe tener dos columnas: index,adc")
     tiempo_idx = datos[:, 0].astype(int)
-    voltajes = datos[:, 1]
+    cuentas = datos[:, 1]
     if fs is None:
         fs = buscar_fs_en_meta(ruta_raw)
     if fs is None:
@@ -241,16 +282,16 @@ def cargar_registro(ruta_raw, fs=None):
                             "en 'fuente.fs_Hz' del config.json.")
     if not fs > 0:
         raise ErrorAnalisis("La frecuencia de muestreo debe ser positiva.")
-    return (tiempo_idx - 1) / fs, voltajes, float(fs), tiempo_idx
+    return (tiempo_idx - 1) / fs, cuentas, float(fs), tiempo_idx
 
 
-def guardar_registro(carpeta, ts, tiempo_idx, voltajes, fs, extra=None):
+def guardar_registro(carpeta, ts, tiempo_idx, cuentas, fs, extra=None):
     """Guarda el registro crudo (medicion_raw_<ts>.csv) y su meta_<ts>.json. Devuelve las dos rutas."""
     os.makedirs(carpeta, exist_ok=True)
     ruta_raw = os.path.join(carpeta, f"medicion_raw_{ts}.csv")
-    np.savetxt(ruta_raw, np.column_stack((tiempo_idx, voltajes)), delimiter=",", fmt="%.10g",
+    np.savetxt(ruta_raw, np.column_stack((tiempo_idx, cuentas)), delimiter=",", fmt="%.10g",
                header="index,adc", comments="")
-    meta = {"timestamp": ts, "fs_est_Hz": float(fs), "n_muestras": int(len(voltajes))}
+    meta = {"timestamp": ts, "fs_est_Hz": float(fs), "n_muestras": int(len(cuentas))}
     if extra:
         meta.update(extra)
     ruta_meta = os.path.join(carpeta, f"meta_{ts}.json")
@@ -329,7 +370,7 @@ def simular_registro(m=0.200, k=16.6, b=0.0088, vueltas=3400, radio=0.0415, altu
 
     Devuelve
     --------
-    t_sec, voltajes, fs, verdad
+    t_sec, cuentas, fs, verdad
         Instantes (s), cuentas del ADC, frecuencia de muestreo (Hz) y diccionario con los valores verdaderos.
     """
     w0 = math.sqrt(k / m)
@@ -388,38 +429,42 @@ def simular_registro(m=0.200, k=16.6, b=0.0088, vueltas=3400, radio=0.0415, altu
 # ---------------------------------------------------------------------------
 # Análisis de la señal
 # ---------------------------------------------------------------------------
-def preparar_senal(t_sec, voltajes, v_scale):
+def preparar_senal(t_sec, cuentas, v_scale):
     """Interpola las lecturas ilegibles y expresa la señal en voltios respecto al nivel de reposo.
 
     El ADC recorta las tensiones negativas, así que la señal es un tren de pulsos unipolares y su media no es
-    el nivel de fem nula. Mientras los pulsos ocupen menos de la mitad del tiempo, la mediana sí lo es.
+    el nivel de fem nula. Mientras los pulsos ocupen menos de la mitad del tiempo, la mediana sí lo es. Si la
+    señal es bipolar (por ejemplo, con un circuito de polarización), la mediana es el nivel de reposo en
+    cualquier caso.
 
     Devuelve un diccionario con
         v : señal en V respecto al reposo (para amplitudes e integrales)
         proc : la misma señal con media cero (para el espectro)
         interp, reposo : cuentas con los NaN interpolados y nivel de reposo en cuentas
         valid : máscara de las lecturas legibles
+        unipolar : True si no hay lóbulos negativos apreciables (el ADC recortó las tensiones negativas)
         advertencias : lista de textos
     """
-    voltajes = np.asarray(voltajes, dtype=float)
-    n = len(voltajes)
-    valid = np.isfinite(voltajes)
+    cuentas = np.asarray(cuentas, dtype=float)
+    n = len(cuentas)
+    valid = np.isfinite(cuentas)
     n_validas = int(np.count_nonzero(valid))
     if n_validas < 100:
         raise ErrorAnalisis("Hay menos de 100 muestras legibles: no se puede analizar el registro.")
     advertencias = []
     if n_validas < 0.99 * n:
         advertencias.append(f"Se interpolaron {n - n_validas} de {n} muestras ({100 * (n - n_validas) / n:.1f} %).")
-    interp = np.interp(t_sec, t_sec[valid], voltajes[valid])
+    interp = np.interp(t_sec, t_sec[valid], cuentas[valid])
     if np.any(interp >= ADC_MAX):
         advertencias.append("Hay lecturas en el fondo de escala del ADC (saturación): amplitudes e integrales "
                             "quedan subestimadas.")
     reposo = float(np.median(interp))
     v = (interp - reposo) * v_scale
-    if np.mean(np.abs(v) > v_scale) >= 0.5:
+    unipolar = bool(-v.min() < FRAC_NEGATIVOS_MAX * v.max())   # Sin lóbulos negativos apreciables: el ADC los recortó
+    if unipolar and np.mean(np.abs(v) > v_scale) >= 0.5:
         advertencias.append("La señal está activa más de la mitad del tiempo: la mediana ya no es el nivel de "
                             "reposo y las amplitudes pueden estar sesgadas.")
-    return {"v": v, "proc": v - v.mean(), "interp": interp, "reposo": reposo, "valid": valid,
+    return {"v": v, "proc": v - v.mean(), "interp": interp, "reposo": reposo, "valid": valid, "unipolar": unipolar,
             "advertencias": advertencias, "n_interpoladas": n - n_validas}
 
 
@@ -608,14 +653,14 @@ def sigma_ruido(v, sigma_min):
     return max(1.4826 * mad / np.sqrt(6.0), sigma_min)
 
 
-def analizar_registro(t_sec, voltajes, fs, v_scale, opciones=None):
+def analizar_registro(t_sec, cuentas, fs, v_scale, opciones=None):
     """Extrae del registro f0, gamma y la integral de la fem del lóbulo de mayor área.
 
     `opciones` es una OpcionesAnalisis (por defecto, la validada). Devuelve (medido, series): `medido` es un
     diccionario con números y textos de advertencia, y `series` los arreglos que usan las gráficas.
     """
     opc = opciones or OpcionesAnalisis()
-    prep = preparar_senal(t_sec, voltajes, v_scale)
+    prep = preparar_senal(t_sec, cuentas, v_scale)
     advertencias = list(prep["advertencias"])
     v, n = prep["v"], len(prep["v"])
     duracion = n / fs
@@ -663,7 +708,7 @@ def analizar_registro(t_sec, voltajes, fs, v_scale, opciones=None):
         advertencias.append(
             f"El lóbulo de mayor área dura {100 * ancho_relativo:.0f} % de medio periodo. Si el imán no cruza el "
             "plano de la bobina debería durar casi todo el medio periodo; puede que el ADC no registre la parte "
-            "baja de la señal (zona muerta), lo que subestima B y sobrestima gamma. Revisa el rango de tensión "
+            "baja de la señal (zona muerta), lo que subestima B_eq y sobrestima gamma. Revisa el rango de tensión "
             "del ADC.")
 
     # 4) Decaimiento del área de los lóbulos
@@ -723,7 +768,7 @@ def analizar_registro(t_sec, voltajes, fs, v_scale, opciones=None):
         "r2_area": None if ajuste_a is None else float(ajuste_a.rvalue ** 2),
         "integral_emf_Vs": abs(integral), "sigma_integral_Vs": sigma_integral,
         "lobulo_t_ini_s": float(t_pulso[0]), "lobulo_t_fin_s": float(t_pulso[-1]), "lobulo_muestras": n_lobulo,
-        "lobulo_ancho_relativo": float(ancho_relativo), "adc_negative_clipped": True,
+        "lobulo_ancho_relativo": float(ancho_relativo), "senal_unipolar": prep["unipolar"],
         "advertencias": advertencias,
     }
     series = {
@@ -746,10 +791,14 @@ def resolver_parametros(medido, montaje):
     Del registro salen f0, gamma y la integral de la fem. El oscilador subamortiguado m x'' + b x' + k x = 0
     cumple gamma = b / (2 m), omega0^2 = k / m y omega1^2 = omega0^2 - gamma^2, donde omega1 = 2 pi f0 es la
     frecuencia angular medida. De los tres parámetros m, k y b basta conocer uno para obtener los otros dos.
-    La integral de la fem es N por la variación de flujo; con N y el radio de la bobina se obtiene B.
+    La integral de la fem es N por la variación de flujo entre los dos extremos de un semiciclo; con N y el
+    radio de la bobina se obtiene B_eq, la variación del campo medio sobre la bobina entre esos extremos.
+
+    Las incertidumbres de gamma y de la integral son estadísticas. La de f0 es la resolución espectral y se
+    propaga a omega0, Q, el decremento logarítmico y k; la masa del montaje se toma como exacta.
 
     Devuelve un diccionario con
-        valores : magnitudes calculadas (omega0, Q, k, b, B, ...)
+        valores : magnitudes calculadas (omega0, Q, k, b, B_T, ...); B_T es B_eq en teslas
         filas : lista de (clave, nombre, valor, incertidumbre, unidad, origen) para mostrar
         chequeos : comparaciones entre un dato dado y el valor deducido de la medición
         faltantes : qué no se pudo calcular y qué dato hace falta
@@ -760,20 +809,23 @@ def resolver_parametros(medido, montaje):
     w1 = 2.0 * math.pi * f0
     gamma_pos = gamma > 0
     w0 = math.sqrt(w1 ** 2 + max(gamma, 0.0) ** 2)
+    rel_f = medido["sigma_f_Hz"] / f0                   # Incertidumbre relativa de f0 (resolución espectral)
+    rel_w0 = rel_f * (w1 / w0) ** 2                     # omega0 depende de f0 casi linealmente
+    rel_g = gamma_err / gamma if gamma_pos else None    # Incertidumbre relativa de gamma (ajuste)
 
     valores = {"omega1_rad_s": w1, "omega0_rad_s": w0}
-    filas = [("omega0", "omega0", w0, None, "rad/s", "sqrt(omega1^2 + gamma^2), con omega1 = 2 pi f0")]
+    filas = [("omega0", "omega0", w0, w0 * rel_w0, "rad/s", "sqrt(omega1^2 + gamma^2), con omega1 = 2 pi f0")]
     faltantes, chequeos = [], []
 
     if gamma_pos:
-        rel = gamma_err / gamma
         valores.update(Q=w0 / (2 * gamma), decremento_log=2 * math.pi * gamma / w1, tau_amplitud_s=1 / gamma)
         filas += [
-            ("Q", "factor de calidad Q", valores["Q"], valores["Q"] * rel, "", "omega0 / (2 gamma)"),
+            ("Q", "factor de calidad Q", valores["Q"], valores["Q"] * math.hypot(rel_w0, rel_g), "",
+             "omega0 / (2 gamma)"),
             ("decremento_log", "decremento logarítmico", valores["decremento_log"],
-             valores["decremento_log"] * rel, "", "2 pi gamma / omega1"),
+             valores["decremento_log"] * math.hypot(rel_f, rel_g), "", "2 pi gamma / omega1"),
             ("tau", "tiempo de decaimiento de la amplitud", valores["tau_amplitud_s"],
-             valores["tau_amplitud_s"] * rel, "s", "1 / gamma"),
+             valores["tau_amplitud_s"] * rel_g, "s", "1 / gamma"),
         ]
     else:
         faltantes.append("Q, b y el tiempo de decaimiento: gamma no es positivo en este registro.")
@@ -790,26 +842,27 @@ def resolver_parametros(medido, montaje):
         filas.append(("masa_ef", "masa efectiva", m_ef, None, "kg", origen_m))
         valores["masa_efectiva_kg"] = m_ef
         valores["k_N_m"] = m_ef * w0 ** 2
-        filas.append(("k", "constante del resorte k", valores["k_N_m"], None, "N/m", "m * omega0^2"))
+        filas.append(("k", "constante del resorte k", valores["k_N_m"], valores["k_N_m"] * 2 * rel_w0, "N/m",
+                      "m * omega0^2"))
         if gamma_pos:
             valores["b_kg_s"] = 2 * m_ef * gamma
-            filas.append(("b", "coeficiente de amortiguamiento b", valores["b_kg_s"],
-                          valores["b_kg_s"] * gamma_err / gamma, "kg/s", "2 m gamma"))
+            filas.append(("b", "coeficiente de amortiguamiento b", valores["b_kg_s"], valores["b_kg_s"] * rel_g,
+                          "kg/s", "2 m gamma"))
     elif k_dada:
         m_calc = k_dada / w0 ** 2
         valores["masa_efectiva_kg"] = m_calc
-        filas.append(("masa_ef", "masa efectiva", m_calc, None, "kg", "k / omega0^2"))
+        filas.append(("masa_ef", "masa efectiva", m_calc, m_calc * 2 * rel_w0, "kg", "k / omega0^2"))
         if gamma_pos:
             valores["b_kg_s"] = 2 * m_calc * gamma
             filas.append(("b", "coeficiente de amortiguamiento b", valores["b_kg_s"],
-                          valores["b_kg_s"] * gamma_err / gamma, "kg/s", "2 m gamma"))
+                          valores["b_kg_s"] * math.hypot(2 * rel_w0, rel_g), "kg/s", "2 m gamma"))
     elif b_dada and gamma_pos:
         m_calc = b_dada / (2 * gamma)
         valores["masa_efectiva_kg"] = m_calc
         valores["k_N_m"] = m_calc * w0 ** 2
-        filas.append(("masa_ef", "masa efectiva", m_calc, m_calc * gamma_err / gamma, "kg", "b / (2 gamma)"))
-        filas.append(("k", "constante del resorte k", valores["k_N_m"], valores["k_N_m"] * gamma_err / gamma,
-                      "N/m", "m * omega0^2"))
+        filas.append(("masa_ef", "masa efectiva", m_calc, m_calc * rel_g, "kg", "b / (2 gamma)"))
+        filas.append(("k", "constante del resorte k", valores["k_N_m"],
+                      valores["k_N_m"] * math.hypot(rel_g, 2 * rel_w0), "N/m", "m * omega0^2"))
     else:
         faltantes.append("k y b: hace falta la masa que oscila, o k, o b.")
 
@@ -837,14 +890,14 @@ def resolver_parametros(medido, montaje):
         area = math.pi * R ** 2
         valores["B_T"] = integral / (N * area)
         valores["B_err_T"] = medido["sigma_integral_Vs"] / (N * area)
-        filas.append(("B", "campo magnético medio B", valores["B_T"], valores["B_err_T"], "T",
+        filas.append(("B", "variación del campo medio B_eq", valores["B_T"], valores["B_err_T"], "T",
                       "integral / (N pi R^2); la incertidumbre es solo ruido de lectura"))
     elif N:
-        faltantes.append("B: hace falta el radio de la bobina.")
+        faltantes.append("B_eq: hace falta el radio de la bobina.")
     elif R:
-        faltantes.append("B: hace falta el número de vueltas de la bobina.")
+        faltantes.append("B_eq: hace falta el número de vueltas de la bobina.")
     else:
-        faltantes.append("B: hacen falta el número de vueltas y el radio de la bobina.")
+        faltantes.append("B_eq: hacen falta el número de vueltas y el radio de la bobina.")
     return {"valores": valores, "filas": filas, "chequeos": chequeos, "faltantes": faltantes}
 
 
@@ -858,7 +911,7 @@ def comparar_con_simulador(medido, resolucion, verdad):
              ("k (N/m)", v.get("k_N_m"), verdad["k_N_m"]),
              ("b (kg/s)", v.get("b_kg_s"), verdad["b_kg_s"]),
              ("integral de la fem (V*s)", medido["integral_emf_Vs"], verdad["integral_emf_Vs"]),
-             ("B (T)", v.get("B_T"), verdad["B_T"])]
+             ("B_eq (T)", v.get("B_T"), verdad["B_T"])]
     return [(n, c, t) for n, c, t in pares if c is not None]
 
 
@@ -903,7 +956,7 @@ def construir_informe(medido, resolucion, montaje, fuente, comparacion=None):
          f"fs = {medido['fs_Hz']:.2f} Hz (fuente: {fuente})", ""]
 
     L.append("Medido en el registro")
-    L.append(_fila("frecuencia f0", formatear(medido["f0_Hz"], medido["sigma_f_Hz"]), "Hz", "FWHM / 2"))
+    L.append(_fila("frecuencia f0", formatear(medido["f0_Hz"], medido["sigma_f_Hz"]), "Hz", "resolución, FWHM / 2"))
     principal = medido["gamma_metodo"]
     if medido["gamma_area_1_s"] is not None:
         marca = " (*)" if principal == "área de los lóbulos" else ""
@@ -939,6 +992,9 @@ def construir_informe(medido, resolucion, montaje, fuente, comparacion=None):
                            "solo ruido de lectura"))
         else:
             L.append(_fila(nombre, formatear(valor, inc), unidad, origen))
+    if "B_T" in resolucion["valores"]:
+        L.append(_parrafo("B_eq es la variación del campo medio sobre la bobina entre los dos extremos de la "
+                          "oscilación: crece con la amplitud y no es el campo del imán en un punto.", sangria="  "))
     if not hay:
         L.append("  (no diste ningún dato del montaje)")
     if resolucion["chequeos"]:
@@ -959,9 +1015,10 @@ def construir_informe(medido, resolucion, montaje, fuente, comparacion=None):
         for texto in medido["advertencias"]:
             L.append(_parrafo(texto))
     L.append("")
-    L.append(_parrafo("Las incertidumbres son estadísticas. No incluyen la calibración del ADC, los valores de N y "
-                      "del radio, la falta de uniformidad del campo sobre la bobina ni un posible cambio de forma "
-                      "de los pulsos.", sangria=""))
+    L.append(_parrafo("La incertidumbre de f0 es la resolución espectral y se propaga a omega0, Q, el decremento "
+                      "logarítmico y k; las demás son estadísticas, del ajuste o del ruido de lectura. Ninguna "
+                      "incluye la calibración del ADC, los valores de N y del radio, la falta de uniformidad del "
+                      "campo sobre la bobina ni un posible cambio de forma de los pulsos.", sangria=""))
     if comparacion:
         L.append("")
         L.append("Comparación con los valores verdaderos del simulador")
@@ -1077,8 +1134,8 @@ NOMBRE_CONFIG = "config.json"
 DIRECTORIO_SCRIPT = Path(__file__).resolve().parent
 TIPOS_FUENTE = ("demo", "archivo", "serie")
 CLAVES_PERMITIDAS = {
-    "fuente": {"tipo", "archivo", "fs_Hz", "puerto", "baudrate", "muestras"},
-    "adc": {"v_ref_V", "v_cal_V", "adc_cal_cuentas"},
+    "fuente": {"tipo", "archivo", "fs_Hz", "puerto", "baudrate", "duracion_s", "cuenta_regresiva_s"},
+    "adc": {"v_ref_V", "v_cal_V", "adc_cal_cuentas", "puntos_cal"},
     "montaje": {"vueltas", "radio_mm", "masa_g", "masa_resorte_g", "k_N_m", "b_kg_s"},
     "analisis": {"f_min_Hz", "kernel_mediano", "umbral_sigma", "frac_prominencia"},
     "demo": {"amplitud_mm", "altura_mm", "zona_muerta_mV", "semilla"},
@@ -1096,25 +1153,27 @@ def plantilla_config():
             "En Windows escribe las rutas con barras normales, por ejemplo C:/datos/medicion_raw_20260204_151040.csv",
         ],
         "fuente": {
-            "_ayuda": "tipo: demo (datos simulados), archivo (registro medicion_raw_<fecha>.csv ya guardado) o serie (adquirir ahora con el ESP32).",
+            "_ayuda": "tipo: demo (datos simulados), archivo (registro medicion_raw_<fecha>.csv ya guardado) o serie (capturar ahora con el ESP32). duracion_s: segundos que dura el registro, simulado o capturado. puerto: null usa el único puerto serie disponible. cuenta_regresiva_s: segundos de aviso antes de capturar, para preparar el imán.",
             "tipo": "demo",
             "archivo": None,
             "fs_Hz": None,
-            "puerto": PUERTO_DEFECTO,
+            "puerto": None,
             "baudrate": 115200,
-            "muestras": 40000,
+            "duracion_s": int(DURACION_DEFECTO),
+            "cuenta_regresiva_s": int(CUENTA_REGRESIVA_DEFECTO),
         },
         "adc": {
-            "_ayuda": "v_ref_V es la referencia nominal del ADC. Para calibrar, aplica una tensión continua conocida (v_cal_V, medida con un multímetro) y anota la lectura media del ADC (adc_cal_cuentas).",
+            "_ayuda": "v_ref_V es la referencia nominal del ADC. Para calibrar, aplica tensiones continuas conocidas (medidas con un multímetro) y anota la lectura media del ADC. Con una sola tensión (v_cal_V y adc_cal_cuentas) se supone que la lectura es proporcional a la tensión. Con varias, escribe puntos_cal como pares [tensión en V, cuentas], por ejemplo [[0.2, 250], [0.4, 500]]. Usa una de las dos formas.",
             "v_ref_V": V_REF_NOMINAL,
             "v_cal_V": None,
             "adc_cal_cuentas": None,
+            "puntos_cal": None,
         },
         "montaje": {
-            "_ayuda": "Lo que conoces del montaje; null en lo que no. masa_g es la masa que oscila (imán y soporte), sin el resorte. Con la masa, o con k, o con b, el programa calcula las otras dos. Estos valores son los del simulador: cámbialos por los de tu montaje.",
-            "vueltas": 3400,
-            "radio_mm": 41.5,
-            "masa_g": 200,
+            "_ayuda": "Lo que conoces del montaje; null en lo que no. masa_g es la masa que oscila (imán y soporte), sin el resorte. Con la masa, o con k, o con b, el programa calcula las otras dos. Con datos reales, k, b y B_eq solo se calculan si escribes aquí los de tu montaje. Con tipo demo, lo que dejes en null se toma del simulador (3400 vueltas, 41.5 mm de radio, 200 g).",
+            "vueltas": None,
+            "radio_mm": None,
+            "masa_g": None,
             "masa_resorte_g": None,
             "k_N_m": None,
             "b_kg_s": None,
@@ -1215,6 +1274,23 @@ class _Bloque:
             raise self._error(clave, f"debe ser true o false (se leyó {valor!r}).")
         return valor
 
+    def pares(self, clave):
+        """Lista de pares [x, y] de números no negativos, al menos dos; None si la clave no está."""
+        valor = self.valores.get(clave)
+        if valor is None:
+            return None
+
+        def es_numero(x):
+            return isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x) and x >= 0
+        if not (isinstance(valor, list) and len(valor) >= 2 and all(
+                isinstance(p, list) and len(p) == 2 and all(es_numero(x) for x in p) for p in valor)):
+            raise self._error(clave, "debe ser una lista de al menos dos pares [tensión en V, cuentas], por ejemplo "
+                                     "[[0.2, 250], [0.4, 500]], o null.")
+        pares = [(float(a), float(b)) for a, b in valor]
+        if len({c for _, c in pares}) < 2:
+            raise self._error(clave, "necesita al menos dos lecturas distintas del ADC.")
+        return pares
+
 
 def cargar_configuracion(ruta):
     """Lee y valida el archivo de configuración. Devuelve una Configuracion.
@@ -1272,15 +1348,21 @@ def cargar_configuracion(ruta):
         if not archivo.is_file():
             raise ErrorAnalisis(f"{ruta.name}: no existe el archivo de datos {archivo}")
     fs = fu.numero("fs_Hz")
-    puerto = fu.texto("puerto", PUERTO_DEFECTO)
+    puerto = fu.texto("puerto")
     baudrate = fu.numero("baudrate", 115200, entero=True)
-    muestras = fu.numero("muestras", 40000, minimo=100, exclusivo=False, entero=True)
+    duracion = fu.numero("duracion_s", DURACION_DEFECTO, minimo=1.0, exclusivo=False, maximo=3600.0)
+    cuenta_regresiva = fu.numero("cuenta_regresiva_s", CUENTA_REGRESIVA_DEFECTO, minimo=0.0, exclusivo=False,
+                                 maximo=300.0)
 
     ad = bloque("adc")
     v_ref = ad.numero("v_ref_V", V_REF_NOMINAL)
     v_cal, adc_cal = ad.numero("v_cal_V"), ad.numero("adc_cal_cuentas")
+    puntos_cal = ad.pares("puntos_cal")
     if (v_cal is None) != (adc_cal is None):
         raise ErrorAnalisis(f"{ruta.name}: la calibración necesita 'adc.v_cal_V' y 'adc.adc_cal_cuentas' a la vez.")
+    if puntos_cal and v_cal is not None:
+        raise ErrorAnalisis(f"{ruta.name}: escribe la calibración de una tensión ('adc.v_cal_V' y "
+                            "'adc.adc_cal_cuentas') o la de varias ('adc.puntos_cal'), no las dos.")
 
     mo = bloque("montaje")
     radio_mm, masa_g, masa_resorte_g = mo.numero("radio_mm"), mo.numero("masa_g"), mo.numero("masa_resorte_g")
@@ -1312,7 +1394,8 @@ def cargar_configuracion(ruta):
     sa = bloque("salida")
     return Configuracion(
         base=base, origen=ruta.resolve(), fuente=tipo, archivo=archivo, fs=fs, puerto=puerto, baudrate=baudrate,
-        muestras=muestras, v_ref=v_ref, v_cal=v_cal, adc_cal=adc_cal, montaje=montaje, analisis=analisis,
+        duracion=duracion, cuenta_regresiva=cuenta_regresiva, v_ref=v_ref, v_cal=v_cal, adc_cal=adc_cal,
+        puntos_cal=puntos_cal, montaje=montaje, analisis=analisis,
         demo_amplitud=amplitud, demo_altura=altura, demo_zona_muerta=zona_muerta, semilla=semilla,
         salida=Path(sa.texto("carpeta", "resultados")), graficas=sa.booleano("graficas", True),
         mostrar=sa.booleano("mostrar_graficas", False), avisos=avisos)
@@ -1321,6 +1404,51 @@ def cargar_configuracion(ruta):
 # ---------------------------------------------------------------------------
 # Ejecución
 # ---------------------------------------------------------------------------
+def escala_adc(cfg):
+    """Escala del ADC en V por cuenta y avisos sobre la calibración.
+
+    Sin calibración se usa v_ref / 4095. Con una tensión conocida (v_cal, adc_cal) se supone que la lectura es
+    proporcional a la tensión. Con varios puntos se ajusta la recta tensión = pendiente * cuentas + ordenada: la
+    pendiente es la escala y la ordenada, la tensión que el ADC no registra, que debería ser casi cero.
+    """
+    avisos = []
+    if cfg.puntos_cal:
+        V = np.array([p[0] for p in cfg.puntos_cal])
+        c = np.array([p[1] for p in cfg.puntos_cal])
+        ajuste = linregress(c, V)
+        escala = float(ajuste.slope)
+        residuo = float(np.max(np.abs(V - (ajuste.intercept + escala * c))))
+        if ajuste.intercept > 0.01:
+            avisos.append(f"La recta de calibración corta el eje de tensión en {1e3 * ajuste.intercept:.0f} mV: el ADC "
+                          "no registra los primeros milivoltios (zona muerta). Lo que la fem tenga por debajo de ese "
+                          "nivel se pierde, lo que subestima B_eq y sobrestima gamma.")
+        if residuo > 0.02 * (V.max() - V.min()):
+            avisos.append(f"Los puntos de calibración se apartan hasta {1e3 * residuo:.0f} mV de una recta: la respuesta "
+                          "del ADC no es lineal y la escala solo vale cerca de las tensiones calibradas.")
+    elif cfg.v_cal is not None:
+        escala = cfg.v_cal / cfg.adc_cal
+    else:
+        escala = cfg.v_ref / ADC_MAX
+    if not 1e-5 <= escala <= 1e-1:
+        raise ErrorAnalisis(f"La escala del ADC resulta {escala:.3g} V por cuenta, que no es razonable para un ADC de "
+                            "12 bits (cerca de 0.0008). Revisa la calibración: cada par es [tensión en V, cuentas].")
+    return escala, avisos
+
+
+def completar_montaje_demo(montaje, verdad):
+    """En modo demo, los datos del montaje que se dejaron en null se toman del simulador.
+
+    Así la demo muestra todos los resultados y el config.json no necesita valores de ejemplo que puedan confundirse
+    con los de un montaje real. La masa solo se completa si no se dio ni k ni b.
+    """
+    sin_mecanica = montaje.k is None and montaje.b is None
+    return Montaje(
+        vueltas=verdad["vueltas"] if montaje.vueltas is None else montaje.vueltas,
+        radio=verdad["radio_m"] if montaje.radio is None else montaje.radio,
+        masa=verdad["masa_kg"] if montaje.masa is None and sin_mecanica else montaje.masa,
+        masa_resorte=montaje.masa_resorte, k=montaje.k, b=montaje.b)
+
+
 def ejecutar(cfg):
     """Obtiene el registro, lo analiza, escribe los archivos de salida y devuelve un diccionario con todo."""
     ts = time.strftime("%Y%m%d_%H%M%S")
@@ -1330,41 +1458,44 @@ def ejecutar(cfg):
     if cfg.origen is not None:
         shutil.copyfile(cfg.origen, os.path.join(carpeta, "config_usada.json"))
     verdad = None
+    montaje = cfg.montaje
+    if cfg.fuente == "demo":
+        v_scale, avisos_cal = cfg.v_ref / ADC_MAX, []
+    else:
+        v_scale, avisos_cal = escala_adc(cfg)   # Antes de capturar: un error de calibración no debe costar un registro
 
     if cfg.fuente == "demo":
-        t_sec, voltajes, fs, verdad = simular_registro(
+        t_sec, cuentas, fs, verdad = simular_registro(
             amplitud=cfg.demo_amplitud, altura=cfg.demo_altura, zona_muerta_V=cfg.demo_zona_muerta,
-            semilla=cfg.semilla, v_ref=cfg.v_ref)
-        ruta_raw, _ = guardar_registro(carpeta, ts, np.arange(1, len(voltajes) + 1), voltajes, fs,
+            semilla=cfg.semilla, v_ref=cfg.v_ref, fs=FS_SIMULADOR, n_muestras=int(round(cfg.duracion * FS_SIMULADOR)))
+        montaje = completar_montaje_demo(cfg.montaje, verdad)
+        ruta_raw, _ = guardar_registro(carpeta, ts, np.arange(1, len(cuentas) + 1), cuentas, fs,
                                        extra={"fuente": "simulacion", "verdad_simulador": verdad})
         fuente = "simulación"
     elif cfg.fuente == "serie":
-        t_sec, voltajes, fs, idx = acquire_trial("ensayo", cfg.muestras, cfg.puerto, cfg.baudrate)
-        ruta_raw, _ = guardar_registro(carpeta, ts, idx, voltajes, fs,
-                                       extra={"fuente": "esp32", "puerto": cfg.puerto, "baudrate": cfg.baudrate})
+        puerto = elegir_puerto(cfg.puerto)
+        t_sec, cuentas, fs, idx = adquirir_registro(cfg.duracion, puerto, cfg.baudrate, cfg.cuenta_regresiva,
+                                                    etiqueta="ensayo")
+        ruta_raw, _ = guardar_registro(carpeta, ts, idx, cuentas, fs,
+                                       extra={"fuente": "esp32", "puerto": puerto, "baudrate": cfg.baudrate,
+                                              "duracion_pedida_s": cfg.duracion})
         fuente = "ESP32"
     else:
-        t_sec, voltajes, fs, _ = cargar_registro(str(cfg.archivo), cfg.fs)
+        t_sec, cuentas, fs, _ = cargar_registro(str(cfg.archivo), cfg.fs)
         ruta_raw, fuente = str(cfg.archivo), "archivo"
 
-    if cfg.fuente != "demo" and cfg.v_cal is not None:
-        v_scale = cfg.v_cal / cfg.adc_cal   # Calibración de un punto: pendiente medida con una tensión conocida
-    else:
-        v_scale = cfg.v_ref / ADC_MAX
-
-    medido, series = analizar_registro(t_sec, voltajes, fs, v_scale, cfg.analisis)
-    medido["advertencias"] = list(cfg.avisos) + medido["advertencias"]
-    resolucion = resolver_parametros(medido, cfg.montaje)
+    medido, series = analizar_registro(t_sec, cuentas, fs, v_scale, cfg.analisis)
+    medido["advertencias"] = list(cfg.avisos) + avisos_cal + medido["advertencias"]
+    resolucion = resolver_parametros(medido, montaje)
     comparacion = comparar_con_simulador(medido, resolucion, verdad) if verdad else None
-    informe = construir_informe(medido, resolucion, cfg.montaje, fuente, comparacion)
+    informe = construir_informe(medido, resolucion, montaje, fuente, comparacion)
 
     resultados = {
         "version_programa": __version__, "timestamp": ts, "fuente": fuente,
         "archivo_raw": ruta_relativa(ruta_raw, carpeta),   # Relativa a esta carpeta: no expone rutas personales
-        "calibracion_adc": cfg.v_cal is not None and cfg.fuente != "demo",
-        "montaje_dado": {"vueltas": cfg.montaje.vueltas, "radio_m": cfg.montaje.radio, "masa_kg": cfg.montaje.masa,
-                         "masa_resorte_kg": cfg.montaje.masa_resorte, "k_N_m": cfg.montaje.k,
-                         "b_kg_s": cfg.montaje.b},
+        "calibracion_adc": cfg.fuente != "demo" and (cfg.v_cal is not None or bool(cfg.puntos_cal)),
+        "montaje_dado": {"vueltas": montaje.vueltas, "radio_m": montaje.radio, "masa_kg": montaje.masa,
+                         "masa_resorte_kg": montaje.masa_resorte, "k_N_m": montaje.k, "b_kg_s": montaje.b},
         "medido": medido, "deducido": resolucion["valores"], "chequeos": resolucion["chequeos"],
         "faltantes": resolucion["faltantes"],
     }
@@ -1416,7 +1547,8 @@ def crear_parser():
     p = argparse.ArgumentParser(
         prog="spring_magnet_analyzer.py", add_help=False, formatter_class=_FormatoEsp,
         description="Analiza la fem inducida por un imán que oscila en un resorte sobre una bobina: obtiene f0, "
-                    "gamma y B, y deduce el resto de magnitudes a partir de los datos del montaje que se conozcan. "
+                    "gamma y la variación del campo medio B_eq, y deduce el resto de magnitudes a partir de los datos del "
+                    "montaje que se conozcan. "
                     f"Lee todo de un archivo de configuración ({NOMBRE_CONFIG}, junto al script).")
     g = p.add_argument_group("opciones")
     g.add_argument("-h", "--help", action="help", help="muestra esta ayuda y termina")

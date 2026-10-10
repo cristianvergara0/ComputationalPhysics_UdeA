@@ -6,25 +6,27 @@
     "En Windows escribe las rutas con barras normales, por ejemplo C:/datos/medicion_raw_20260204_151040.csv"
   ],
   "fuente": {
-    "_ayuda": "tipo: demo (datos simulados), archivo (registro medicion_raw_<fecha>.csv ya guardado) o serie (adquirir ahora con el ESP32).",
+    "_ayuda": "tipo: demo (datos simulados), archivo (registro medicion_raw_<fecha>.csv ya guardado) o serie (capturar ahora con el ESP32). duracion_s: segundos que dura el registro, simulado o capturado. puerto: null usa el único puerto serie disponible. cuenta_regresiva_s: segundos de aviso antes de capturar, para preparar el imán.",
     "tipo": "demo",
     "archivo": null,
     "fs_Hz": null,
-    "puerto": "COM10",
+    "puerto": null,
     "baudrate": 115200,
-    "muestras": 40000
+    "duracion_s": 40,
+    "cuenta_regresiva_s": 5
   },
   "adc": {
-    "_ayuda": "v_ref_V es la referencia nominal del ADC. Para calibrar, aplica una tensión continua conocida (v_cal_V, medida con un multímetro) y anota la lectura media del ADC (adc_cal_cuentas).",
+    "_ayuda": "v_ref_V es la referencia nominal del ADC. Para calibrar, aplica tensiones continuas conocidas (medidas con un multímetro) y anota la lectura media del ADC. Con una sola tensión (v_cal_V y adc_cal_cuentas) se supone que la lectura es proporcional a la tensión. Con varias, escribe puntos_cal como pares [tensión en V, cuentas], por ejemplo [[0.2, 250], [0.4, 500]]. Usa una de las dos formas.",
     "v_ref_V": 3.3,
     "v_cal_V": null,
-    "adc_cal_cuentas": null
+    "adc_cal_cuentas": null,
+    "puntos_cal": null
   },
   "montaje": {
-    "_ayuda": "Lo que conoces del montaje; null en lo que no. masa_g es la masa que oscila (imán y soporte), sin el resorte. Con la masa, o con k, o con b, el programa calcula las otras dos. Estos valores son los del simulador: cámbialos por los de tu montaje.",
-    "vueltas": 3400,
-    "radio_mm": 41.5,
-    "masa_g": 200,
+    "_ayuda": "Lo que conoces del montaje; null en lo que no. masa_g es la masa que oscila (imán y soporte), sin el resorte. Con la masa, o con k, o con b, el programa calcula las otras dos. Con datos reales, k, b y B_eq solo se calculan si escribes aquí los de tu montaje. Con tipo demo, lo que dejes en null se toma del simulador (3400 vueltas, 41.5 mm de radio, 200 g).",
+    "vueltas": null,
+    "radio_mm": null,
+    "masa_g": null,
     "masa_resorte_g": null,
     "k_N_m": null,
     "b_kg_s": null
