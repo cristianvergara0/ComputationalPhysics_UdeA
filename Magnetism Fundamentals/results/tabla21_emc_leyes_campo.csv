@@ -1,0 +1,10 @@
+ley de campo,exponente,R² del ajuste
+n: |ΔS_M| conv. ~ H^n (todos los H),2.223 ± 0.014,0.9957
+n: |ΔS_M| conv. ~ H^n (H ≤ 0.5),2.159 ± 0.027,0.9972
+p: RCP conv. ~ H^p,1.996 ± 0.034,0.9997
+m: ΔT_ad exacto en el pico conv. ~ H^m,1.819 ± 0.063,0.9977
+m con la fórmula aproximada,1.665 ± 0.057,0.9915
+n del máximo global de |ΔS_M| (mezcla de ramas),0.490 ± 0.023,0.5240
+referencia: respuesta lineal (campo no conjugado),n = p = 2,
+referencia: campo medio con campo conjugado,"n = m = 2/3, p = 4/3",
+Markna et al. (2026),"n, m ≈ 0.65–0.70; p ≈ 1.2–1.4",

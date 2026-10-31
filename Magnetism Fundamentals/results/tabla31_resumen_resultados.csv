@@ -1,0 +1,19 @@
+resultado,valor,dónde
+"Fase ordenada (g = 0.6, h = 0)","stripe, degeneración 4 (Z4)","Secciones 2, 6"
+"T_c (cruces de ξ/L, L = 24–64)",0.9718 ± 0.0010,Tabla 11
+"T_c (cruces de ξ/L, L = 12–32)",0.9715 ± 0.0018,Tabla 11
+"1/ν (pendiente de ξ/L, L = 24–64)",1.52 ± 0.25,Tabla 11
+γ/ν (L = 24–64),1.741 ± 0.046,Tabla 11
+α/ν (L = 24–64),0.941 ± 0.037,Tabla 11
+β/ν (L = 24–64),0.134 ± 0.024,Tabla 11
+pendiente de 2/3 − V_min frente a L,-1.03,Tabla 14
+exponente dinámico z (τ_int ~ L^z en T_c),1.74 ± 0.39,Tabla 14
+"T_c(g) frente a Jin et al. (2013), g ≥ 0.67",desviaciones entre -0.8 % y +0.9 %,Tabla 17
+isoterma M(h) en T_c,M ~ h^1.28 ± 0.01,Sección 9.2
+"máximo de la rama inversa, ΔS_M/N [k_B]",0.24710 ± 0.00036 en H = 0.35,Tabla 20
+"pico convencional, ΔS_M/N en H = 0.5 [k_B]",-0.09018 ± 0.00028,Tabla 20
+"cambio de signo de ΔS_M(T_c, H)",H = 0.5842 ± 0.0042,Tabla 20
+"n (rama convencional, H ≤ 0.5)",2.159 ± 0.027,Tabla 21
+p (RCP convencional),1.996 ± 0.034,Tabla 21
+"m (ΔT_ad exacto, pico convencional)",1.819 ± 0.063,Tabla 21
+"T_c con FBC (mediana de los cruces de ξ/L, L = 16–32)",0.949 ± 0.005,Tabla 27

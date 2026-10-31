@@ -1,0 +1,16 @@
+# Caché de simulaciones (se regenera ejecutando el notebook)
+data/
+data_scale_*/
+figures_scale_*/
+results_scale_*/
+# Python
+__pycache__/
+*.py[cod]
+*.nbi
+*.nbc
+.pytest_cache/
+# Jupyter
+.ipynb_checkpoints/
+# Sistema
+.DS_Store
+Thumbs.db

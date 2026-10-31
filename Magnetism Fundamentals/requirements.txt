@@ -1,0 +1,10 @@
+# Dependencias del proyecto (Python >= 3.10)
+numpy>=1.24
+scipy>=1.10
+pandas>=2.0
+matplotlib>=3.7
+jinja2>=3.1          # tablas con formato en el notebook (pandas Styler)
+pillow>=9.0          # animaciones GIF de los barridos
+numba>=0.58          # aceleración de los núcleos de Monte Carlo (opcional, pero necesaria para la producción)
+jupyter>=1.0         # o ipykernel, para ejecutar el notebook en VS Code
+pytest>=7.0          # pruebas (carpeta tests/)

@@ -1,0 +1,10 @@
+magnitud,Markna et al. (2026),este trabajo,lectura
+temperatura de transición,T_N = 51.8 K (x = 0),T_c = 0.9718 ± 0.0010 J1/k_B,escalas de energía distintas: no comparable en valor
+estructura de ΔS_M(T),un pico característico en T_N,rama inversa por debajo de T_c y convencional por encima; cambio de signo en T_c,diferencia cualitativa (Sección 9.4)
+T del pico de ΔS_M / T_c,≈ 1,"inversa 0.90, convencional 1.17 (H = 0.5)",ninguna rama tiene su extremo en T_c
+FWHM / T_c,"0.77 (x = 0, 10 T)","0.91 (rama convencional, H = 0.5)",picos anchos en ambos casos; campos no equivalentes
+exponentes críticos,"β = 0.325–0.338, γ = 1.237–1.310 (Ising 3D)","1/ν = 1.52 ± 0.25, γ/ν = 1.741 ± 0.046, α/ν = 0.941 ± 0.037, β/ν = 0.134 ± 0.024","clases distintas (2D, Z4; cercana al Potts de 4 estados)"
+n: ΔS_M ~ H^n,0.65–0.70,"2.159 ± 0.027 (rama convencional, H ≤ 0.5)","respuesta lineal (n → 2), campo no conjugado"
+m: ΔT_ad ~ H^m,0.65–0.70,"1.819 ± 0.063 (exacto, pico convencional)",ídem
+p: RCP ~ H^p,1.2–1.4,1.996 ± 0.034,ídem
+isoterma M(H) en la transición,δ = 4.81–4.89,M ~ H^{1.28},el campo uniforme no es conjugado del orden stripe

@@ -14,7 +14,7 @@ It includes Jupyter notebooks, data files, and visualizations covering different
   Numerical methods and simulations, including the double pendulum.
 
 * **Computational Physics I/**
-  Monte Carlo model of copper thin-film growth by thermal evaporation, built one mechanism at a time in eight notebooks that share a common simulation package (`thinfilm_mc`): random deposition, surface relaxation, thermally activated hopping, oblique incidence, geometric shadowing with exact ray tracing, gas-phase scattering, and lateral sticking with porous growth. Includes dynamic scaling and universality classes (Edwards–Wilkinson, Kardar–Parisi–Zhang), the shadowing column instability, mound formation in thick films, porosity maps, a 2<sup>5</sup> factorial design of the mechanisms, and automated tests.
+  Monte Carlo model of copper thin-film growth by thermal evaporation, built one mechanism at a time in eight notebooks that share a common simulation package (`thinfilm_mc`): random deposition, surface relaxation, thermally activated hopping, oblique incidence, geometric shadowing with exact ray tracing, gas-phase scattering, and lateral sticking with porous growth. Includes dynamic scaling and universality classes (Edwards–Wilkinson, Kardar–Parisi–Zhang), the shadowing column instability, mound formation in thick films, porosity maps, a $2^5$ factorial design of the mechanisms, and automated tests.
 
 * **Experimental Physics IV/**
   Experimental projects with computational modeling (e.g., Boltzmann's constant, absorption spectrum of lager-type beers, and the photoelectric effect).
@@ -23,7 +23,7 @@ It includes Jupyter notebooks, data files, and visualizations covering different
   Models and calculations in nuclear physics (e.g., radioactive decay, relativistic kinematics, the semi-empirical mass formula, and the Coulomb radius from mirror nuclei).
 
 * **Magnetism Fundamentals/**
-  2D J<sub>1</sub>–J<sub>2</sub> antiferromagnetic Ising model simulations via Monte Carlo (Metropolis algorithm with Numba acceleration and process-level parallelism): phase transitions, stripe order parameter, boundary conditions (PBC vs. FBC), and the magnetocaloric effect (&Delta;S<sub>M</sub>).
+  Monte Carlo study of the frustrated $J_1$-$J_2$ Ising model on the square lattice (ferromagnetic $J_1$, antiferromagnetic $J_2 = -0.6$) and its magnetocaloric effect, built on a simulation package (`isingj1j2`) with Numba-compiled Metropolis kernels, process-level parallelism, reproducible seeds and bootstrap error analysis. Includes the fourfold-degenerate stripe order, finite-size scaling for $L = 12\text{--}64$ (correlation length, Binder cumulants, response maxima) locating the transition near the four-state Potts point, the critical temperature as a function of $J_2/J_1$ validated against transfer-matrix results, periodic vs. free boundary conditions, the inverse and conventional branches of $\Delta S_M$, the adiabatic temperature change and relative cooling power, and automated tests.
 
 * **Probability and Statistics/**
   Notebooks on statistical inference, probability distributions, and regression.
@@ -45,7 +45,7 @@ It includes Jupyter notebooks, data files, and visualizations covering different
 
 * Python 3.x
 * Jupyter Notebook
-* Scientific libraries: `numpy`, `scipy`, `matplotlib`, `numba`, `pandas`, `seaborn`, `scikit-learn`, `sympy`, `Pillow`, `tabulate`
+* Scientific libraries: `numpy`, `scipy`, `matplotlib`, `numba`, `pandas`, `seaborn`, `scikit-learn`, `sympy`, `Pillow`, `tabulate`, `jinja2`, `pytest`
 
 ---
 

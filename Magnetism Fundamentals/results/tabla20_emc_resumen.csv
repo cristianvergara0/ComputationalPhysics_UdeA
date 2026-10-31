@@ -1,0 +1,15 @@
+magnitud,valor
+"ΔS_M/N, pico inverso, H = 0.2",0.1786 ± 0.0028
+"T del pico inverso, H = 0.2",0.9450 ± 0.0019
+"ΔS_M/N, pico inverso, H = 0.5",0.16582 ± 0.00037
+"T del pico inverso, H = 0.5",0.8715 ± 0.0037
+"ΔS_M/N, pico convencional, H = 0.5",-0.09018 ± 0.00028
+"T del pico convencional, H = 0.5",1.1375 ± 0.0064
+"FWHM convencional, H = 0.5",0.8861 ± 0.0046
+"RCP/N convencional, H = 0.5",0.07991 ± 0.00038
+"ΔT_ad exacto en el pico convencional, H = 0.5",0.3139 ± 0.0042
+"ΔS_M/N, pico convencional, H = 1.0",-0.34277 ± 0.00024
+"ΔT_ad exacto en el pico convencional, H = 1.0",1.0267 ± 0.0086
+campo del máximo de la rama inversa,0.3500
+"máximo de la rama inversa, ΔS_M/N",0.24710 ± 0.00036
+"campo en que ΔS_M(T*, H) cambia de signo",0.5842 ± 0.0042

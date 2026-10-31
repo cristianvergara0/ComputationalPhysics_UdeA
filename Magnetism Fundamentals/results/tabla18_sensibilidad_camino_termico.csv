@@ -1,0 +1,5 @@
+variante,máx. |Δ(ΔS_M/N)| frente a la referencia
+"referencia: T_ref = 3.0, malla completa",0.0e+00
+T_ref = 2.0,5.7e-04
+T_ref = 1.5,3.2e-04
+malla térmica cada 2 nodos,7.1e-04

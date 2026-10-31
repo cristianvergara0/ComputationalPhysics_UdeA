@@ -1,0 +1,4 @@
+configuración,"E/N (red 8×8, PBC)",E/N (fórmula),M/N,M_s,m_stripe
+ferromagnético,-0.800,-0.800,1,0.00,0.00
+checkerboard,+3.200,+3.200,0,0.50,0.00
+stripe,-1.200,-1.200,0,0.00,1.00

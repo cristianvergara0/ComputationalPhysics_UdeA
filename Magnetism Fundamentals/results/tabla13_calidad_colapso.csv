@@ -1,0 +1,4 @@
+hipótesis,1/ν,error cuadrático medio del colapso
+Ising 2D (1/ν = 1),1.00,2.63e-03
+Potts 4 estados (1/ν = 3/2),1.50,2.65e-03
+ajustado (1/ν = 1.25),1.25,2.26e-03
