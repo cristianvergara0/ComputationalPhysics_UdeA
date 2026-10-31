@@ -594,7 +594,8 @@ class TestConfiguracion(unittest.TestCase):
         with self.assertRaises(sma.ErrorAnalisis) as e:
             sma.cargar_configuracion(ruta)
         mensaje = str(e.exception)
-        self.assertIn("línea 4", mensaje)
+        # Python 3.13 y posteriores señalan la línea de la coma (3); las versiones anteriores, la de la llave (4)
+        self.assertRegex(mensaje, r"línea [34]\b")
         self.assertIn("coma", mensaje)
 
     def test_ruta_de_windows_con_barras_invertidas(self):

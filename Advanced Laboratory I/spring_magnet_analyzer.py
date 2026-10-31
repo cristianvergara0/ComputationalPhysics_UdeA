@@ -1222,6 +1222,8 @@ def _sugerir(clave, permitidas):
 def _pista_json(mensaje):
     """Sugerencia para los errores de sintaxis JSON más frecuentes."""
     m = mensaje.lower()
+    if "trailing comma" in m:      # Python 3.13 y posteriores nombran este error directamente
+        return "Sobra una coma antes de una llave o un corchete de cierre: en JSON el último elemento no lleva coma."
     if "escape" in m:
         return "En JSON las barras invertidas de una ruta se escriben dobles (\\\\) o se reemplazan por barras normales (/)."
     if "property name" in m:

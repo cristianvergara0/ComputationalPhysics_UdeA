@@ -1,5 +1,11 @@
 # Oscilaciones de un imán en un resorte: análisis de la fem inducida
 
+## Abstract
+
+A magnet hanging from a spring oscillates above a coil, and the voltage induced in the coil is recorded with the ADC of an ESP32 microcontroller. This project provides a Python program that captures or loads such a record and extracts the oscillation frequency, the damping coefficient γ from the decay of the induced pulses and, through Faraday's law, the change of the mean magnetic field over the coil between the extremes of the oscillation. Given the oscillating mass, the spring constant k or the damping coefficient b, it derives the other two. Validated on a simulated 40 s record with known parameters, it recovers γ within 0.6 % and k and the mean field within 0.1 %. Simulations also show its main limitation: the ESP32 ADC does not read negative voltages and responds poorly near 0 V, and a 100 mV dead zone multiplies γ by 3.5. The original laboratory measurements were not preserved.
+
+## Descripción
+
 Un imán colgado de un resorte oscila sobre una bobina. La tensión inducida en la bobina se registra con un ESP32, y `spring_magnet_analyzer.py` obtiene de ese registro la frecuencia de oscilación, el coeficiente de amortiguamiento γ y la variación del campo medio B_eq sobre la bobina. Si además se conoce la masa que oscila, la constante k del resorte o el coeficiente de amortiguamiento b (basta uno de los tres), el programa calcula los otros dos.
 
 Todo lo que el programa necesita se escribe en un archivo, `config.json`, que está junto al script; entre otras cosas, cuántos segundos dura la captura con el ESP32. No hace preguntas al ejecutarse. El notebook de `notebooks/` explica el método y lo comprueba con registros simulados.
@@ -77,7 +83,7 @@ Las pruebas se ejecutan con `python -m unittest discover -s tests`. No necesitan
 
 ## Estado y límites
 
-- No se conservan los datos medidos con el montaje físico. El programa se validó con registros simulados que conocen sus valores verdaderos, y la captura por puerto serie, incluida una medición completa de principio a fin, con un ESP32 simulado. Falta una prueba con el ESP32 conectado. Se probó con Python 3.12, NumPy 2.4, SciPy 1.17 y Matplotlib 3.10 en Linux; la demo también se ejecutó completa en Windows (PowerShell, entorno de conda). El código no usa sintaxis posterior a Python 3.9.
+- No se conservan los datos medidos con el montaje físico. El programa se validó con registros simulados que conocen sus valores verdaderos, y la captura por puerto serie, incluida una medición completa de principio a fin, con un ESP32 simulado. Falta una prueba con el ESP32 conectado. Se probó con Python 3.12 y 3.13, NumPy 2.4 y 2.5, SciPy 1.17 y 1.18 y Matplotlib 3.10 y 3.11 en Linux; la demo también se ejecutó completa en Windows (PowerShell, entorno de conda). El código no usa sintaxis posterior a Python 3.9.
 - El ADC del ESP32 no mide tensiones negativas, así que con la conexión directa solo se registra el lóbulo positivo de cada ciclo. Además, su respuesta cerca de 0 V no es fiable: en el simulador, una zona muerta de 100 mV con pulsos de 250 mV reduce B_eq a menos de la mitad y multiplica γ por 3.5. La sección 6 del manual explica cómo detectarlo y evitarlo.
 - γ estima el decaimiento de la altura o del área de los pulsos, y solo coincide con el de la amplitud de oscilación si los pulsos conservan su forma. El programa avisa cuando las dos estimaciones difieren.
 - B_eq es la variación del campo medio sobre la bobina entre los dos extremos de la oscilación, con campo uniforme supuesto sobre su área. Crece con la amplitud y no es el campo del imán en un punto; solo se pueden comparar registros soltados desde la misma amplitud.
