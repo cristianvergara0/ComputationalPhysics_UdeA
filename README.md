@@ -14,7 +14,7 @@ It includes Jupyter notebooks, data files, and visualizations covering different
   Numerical methods and simulations, including the double pendulum.
 
 * **Computational Physics I/**
-  Basic computational physics simulation models, including random deposition processes, surface relaxation, geometric effects, and statistical validation using Monte Carlo methods.
+  Monte Carlo model of copper thin-film growth by thermal evaporation, built one mechanism at a time in eight notebooks that share a common simulation package (`thinfilm_mc`): random deposition, surface relaxation, thermally activated hopping, oblique incidence, geometric shadowing with exact ray tracing, gas-phase scattering, and lateral sticking with porous growth. Includes dynamic scaling and universality classes (Edwards–Wilkinson, Kardar–Parisi–Zhang), the shadowing column instability, mound formation in thick films, porosity maps, a 2<sup>5</sup> factorial design of the mechanisms, and automated tests.
 
 * **Experimental Physics IV/**
   Experimental projects with computational modeling (e.g., Boltzmann's constant, absorption spectrum of lager-type beers, and the photoelectric effect).

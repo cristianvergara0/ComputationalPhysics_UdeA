@@ -1,0 +1,14 @@
+# Salidas que generan los cuadernos y las pruebas (se pueden regenerar)
+resultados/
+
+# Python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.pytest_cache/
+
+# Editores y sistema
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

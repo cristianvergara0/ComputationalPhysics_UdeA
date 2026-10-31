@@ -1,0 +1,12 @@
+# Dependencias de ejecución (el código no usa sintaxis posterior a Python 3.9)
+numpy>=1.26
+scipy>=1.11
+pandas>=2.0
+matplotlib>=3.7
+
+# Aceleración (recomendada): sin ella los cuadernos que trazan rayos tardan mucho más.
+# Las pruebas rápidas y la ejecución de punta a punta a escala reducida se verificaron sin Numba.
+numba>=0.59
+
+# Para abrir y ejecutar los cuadernos
+jupyterlab>=4.0
