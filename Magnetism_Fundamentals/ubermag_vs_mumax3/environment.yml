@@ -1,0 +1,21 @@
+# Entorno de conda con las versiones de Ubermag con las que se ejecutaron los notebooks.
+# Crear y activar:
+#   conda env create -f environment.yml
+#   conda activate ubermag_env
+# OOMMF se instala como dependencia de oommfc. MuMax3 se instala aparte (necesita una GPU NVIDIA).
+name: ubermag_env
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - ubermag
+  - discretisedfield=0.92.0
+  - micromagneticmodel=0.65.0
+  - oommfc=0.66.0
+  - mag2exp=0.64.0
+  - numpy
+  - matplotlib
+  - pillow
+  - nbformat
+  - nbclient
+  - pytest

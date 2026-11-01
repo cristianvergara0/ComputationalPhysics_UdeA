@@ -23,7 +23,9 @@ It includes Jupyter notebooks, data files, and visualizations covering different
   Models and calculations in nuclear physics (e.g., radioactive decay, relativistic kinematics, the semi-empirical mass formula, and the Coulomb radius from mirror nuclei).
 
 * **Magnetism Fundamentals/**
-  Monte Carlo study of the frustrated J<sub>1</sub>–J<sub>2</sub> Ising model on the square lattice (ferromagnetic J<sub>1</sub>, antiferromagnetic J<sub>2</sub> = &minus;0.6) and its magnetocaloric effect, built on a simulation package (`isingj1j2`) with Numba-compiled Metropolis kernels, process-level parallelism, reproducible seeds and bootstrap error analysis. Includes the fourfold-degenerate stripe order, finite-size scaling for L = 12–64 (correlation length, Binder cumulants, response maxima) locating the transition near the four-state Potts point, the critical temperature as a function of J<sub>2</sub>/J<sub>1</sub> validated against transfer-matrix results, periodic vs. free boundary conditions, the inverse and conventional branches of &Delta;S<sub>M</sub>, the adiabatic temperature change and relative cooling power, and automated tests.
+  Two projects on computational magnetism:
+  * `antiferromagnetic_ising2d_magnetocaloric_effect/`: Monte Carlo study of the frustrated J<sub>1</sub>–J<sub>2</sub> Ising model on the square lattice (ferromagnetic J<sub>1</sub>, antiferromagnetic J<sub>2</sub> = &minus;0.6) and its magnetocaloric effect, built on a simulation package (`isingj1j2`) with Numba-compiled Metropolis kernels, process-level parallelism, reproducible seeds and bootstrap error analysis. Includes the fourfold-degenerate stripe order, finite-size scaling for L = 12–64 (correlation length, Binder cumulants, response maxima) locating the transition near the four-state Potts point, the critical temperature as a function of J<sub>2</sub>/J<sub>1</sub> validated against transfer-matrix results, periodic vs. free boundary conditions, the inverse and conventional branches of &Delta;S<sub>M</sub>, the adiabatic temperature change and relative cooling power, and automated tests.
+  * `ubermag_vs_mumax3/`: two Ubermag/OOMMF documentation examples (energy terms of a Bloch skyrmion and torque magnetometry of a box with uniaxial anisotropy), explained for the course with their original computations and reimplemented in MuMax3. Includes a cell-by-cell comparison of magnetization states and energies between both codes, the model settings that make them equivalent (DMI boundary condition, torque without precession, gyromagnetic ratio), an independent NumPy replica and a macrospin model with analytical demagnetizing factors for validation, a stability analysis showing that the circular skyrmion of the example is a saddle point, and wall-clock benchmarks that separate the fixed cost of each OOMMF call from the computation.
 
 * **Probability and Statistics/**
   Notebooks on statistical inference, probability distributions, and regression.
@@ -46,6 +48,7 @@ It includes Jupyter notebooks, data files, and visualizations covering different
 * Python 3.x
 * Jupyter Notebook
 * Scientific libraries: `numpy`, `scipy`, `matplotlib`, `numba`, `pandas`, `seaborn`, `scikit-learn`, `sympy`, `Pillow`, `tabulate`, `jinja2`, `pytest`
+* Micromagnetics: Ubermag (with OOMMF and `mag2exp`) and MuMax3, which requires an NVIDIA GPU
 
 ---
 

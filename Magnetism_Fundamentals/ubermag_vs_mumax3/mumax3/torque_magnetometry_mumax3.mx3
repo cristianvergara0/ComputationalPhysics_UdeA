@@ -1,0 +1,88 @@
+// =============================================================================
+// Equivalente en MuMax3 del notebook torque_magnetometry_uniaxial_box.ipynb (ejemplo Torque
+// magnetometry de Ubermag y mag2exp).
+//
+// Caja de 300 x 300 x 100 nm (celdas de 5 nm) con intercambio, anisotropia uniaxial en z y campo
+// desmagnetizante. Se relaja a campo cero y luego se rota un campo de 2.38e6 A/m en el plano yz
+// (71 angulos entre 0 y 2*pi), relajando en cada angulo desde el estado del angulo anterior.
+//
+// Torque (definicion de mag2exp, por unidad de volumen, N/m2 = J/m3):
+//     tau = mu0 <M> x H_app = Msat <m> x B_ext
+//
+// Relajacion: Minimize() (descenso de gradiente de Exl et al., 2014). Se detiene cuando el cambio
+// maximo de m entre iteraciones es menor que MinimizerStop (1e-6 por defecto); no se modifica.
+// MinDriver de OOMMF (gradiente conjugado) usa otro criterio: par residual, stopping_mxHxm = 0.1 A/m
+// por defecto en oommfc 0.66.0.
+//
+// Resultado de la ejecucion del 31-oct-2026 (MuMax3 3.12, GPU RTX 5060 Laptop; salida en torque_magnetometry_mumax3.out/):
+//     tau_x maximo = +9.4873e5 N/m2 y minimo = -9.4873e5 N/m2 (no K = 1.18e6; el macroespin con anisotropia
+//     de forma da K_eff = 9.55e5); <m> a campo cero = (1.0e-10, -4.2e-10, 0.99782).
+//     La curva coincide con la de Ubermag con una diferencia maxima de 3.9e-5 de la amplitud y con el
+//     macroespin con anisotropia de forma a 1.2 % (validate_torque_macrospin.py).
+//
+// Ejecucion:   mumax3 -vet torque_magnetometry_mumax3.mx3
+//              mumax3 -f torque_magnetometry_mumax3.mx3
+// Salida:      torque_magnetometry_mumax3.out/torque_vs_angle.txt
+//              (columnas: angulo_rad, tau_x, tau_y, tau_z en N/m2)
+// Requiere una GPU NVIDIA. Grafica rapida: python ../scripts/plot_torque_mumax3.py
+// El tiempo de ejecucion se mide desde Python (benchmark_ubermag_vs_mumax3.py), como tiempo de pared
+// del proceso completo.
+// =============================================================================
+
+Ms0   := 9.65e5       // A/m
+Aex0  := 8.78e-13     // J/m
+Ku0   := 1.18e6       // J/m3
+Hmag  := 2.38e6       // A/m
+Bmag  := mu0*Hmag     // T (aprox. 2.99 T)
+
+SetGridSize(60, 60, 20)           // 300 x 300 x 100 nm con celdas de 5 nm
+SetCellSize(5e-9, 5e-9, 5e-9)
+// Sin PBC y con demag activa (valor por defecto de EnableDemag)
+
+Msat  = Ms0
+Aex   = Aex0
+Ku1   = Ku0
+anisU = vector(0, 0, 1)
+B_ext = vector(0, 0, 0)
+
+SnapshotFormat = "png"
+
+// Estado inicial uniforme a lo largo de +z y relajacion a campo cero
+m = Uniform(0, 0, 1)
+Minimize()
+SaveAs(m, "m_relaxed_zero_field.ovf")
+SnapshotAs(m, "m_relaxed_zero_field.png")
+
+// A campo cero el torque es nulo por definicion (B_ext = 0).
+print("<m> a campo cero:", m.Comp(0).Average(), m.Comp(1).Average(), m.Comp(2).Average())
+
+Fprintln("torque_vs_angle.txt", "# angulo_rad  tau_x  tau_y  tau_z   [N/m2 = J/m3]")
+
+taumax := -1e30
+taumin :=  1e30
+
+// El estado de cada angulo es el punto de partida del siguiente (como en el notebook).
+for k := 0.0; k < 71; k++ {
+	phi := 2*pi*k/70
+	By := Bmag*sin(phi)
+	Bz := Bmag*cos(phi)
+	B_ext = vector(0, By, Bz)
+	Minimize()
+
+	mx := m.Comp(0).Average()
+	my := m.Comp(1).Average()
+	mz := m.Comp(2).Average()
+
+	// tau = Msat * (<m> x B) con B = (0, By, Bz)
+	tx := Ms0*(my*Bz - mz*By)
+	ty := Ms0*(-mx*Bz)
+	tz := Ms0*(mx*By)
+
+	Fprintln("torque_vs_angle.txt", phi, tx, ty, tz)
+	taumax = max(taumax, tx)
+	taumin = min(taumin, tx)
+}
+
+SaveAs(m, "m_last_angle.ovf")
+print("tau_x maximo (N/m2):", taumax, " minimo:", taumin, " K =", Ku0)
+

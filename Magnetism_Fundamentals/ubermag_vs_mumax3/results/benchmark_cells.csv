@@ -1,0 +1,12 @@
+caso,celda,primera_linea,mediana_s
+micromagnetic_energy_terms_skyrmion,4,# ==========================================================,9.143796
+micromagnetic_energy_terms_skyrmion,7,# ==========================================================,0.161884
+micromagnetic_energy_terms_skyrmion,9,# ==========================================================,18.662497
+micromagnetic_energy_terms_skyrmion,11,# ==========================================================,18.683185
+micromagnetic_energy_terms_skyrmion,13,# ==========================================================,18.814139
+micromagnetic_energy_terms_skyrmion,15,# ==========================================================,18.685295
+micromagnetic_energy_terms_skyrmion,18,# ==========================================================,4.154959
+torque_magnetometry_uniaxial_box,4,import discretisedfield as df,2.732273
+torque_magnetometry_uniaxial_box,6,# Usamos el motor de simulación para buscar el estado donde ,6.797346
+torque_magnetometry_uniaxial_box,8,import mag2exp,0.029019
+torque_magnetometry_uniaxial_box,10,# Preparamos una lista de 71 ángulos para simular una rotaci,459.56643

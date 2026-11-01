@@ -1,0 +1,6 @@
+# termino  MuMax3_J  referencia_Ubermag_J
+Zeeman -1.0347215e-18 -1.03472186e-18
+Anisotropia_conv_Ubermag 2.0433562499999989e-19 2.0433559e-19
+Intercambio 1.7438395000000003e-18 1.74383742e-18
+DMI_OpenBC_true -4.3505912500000006e-18 -4.35058832e-18
+DMI_Neumann_informativo -7.255508500000001e-18 0

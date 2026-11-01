@@ -1,0 +1,112 @@
+//mumax 3.12 [windows_amd64 go1.26.0(gc) CUDA-12.9]
+//commit hash: 6e5c98bb
+//CPU info: Unknown, Error: exec: "wmic": executable file not found in %PATH%
+//GPU info: NVIDIA GeForce RTX 5060 Laptop GPU(8123MB), CUDA Driver 13.5, cc=12.0, using cc=120 PTX
+//OS  info: Windows OS, Hostname: Ashborn
+//Timestamp: 2026-10-31 20:37:23
+//(c) Arne Vansteenkiste, Dynamat LAB, Ghent University, Belgium
+//This is free software without any warranty. See license.txt
+//********************************************************************//
+//  If you use mumax in any work or publication,                      //
+//  we kindly ask you to cite the references in references.bib        //
+//********************************************************************//
+//output directory: skyrmion_energy_terms_mumax3.out/
+Lbox := 100e-9
+tfilm := 5e-9
+csz := 5e-9
+Ms0 := 3.84e5
+Aex0 := 8.78e-12
+Dbk0 := 1.58e-3
+Ku0 := 1e4
+Hz0 := 1e5
+SetGridSize(20, 20, 1)
+SetCellSize(csz, csz, tfilm)
+SetPBC(1, 1, 0)
+//resizing...
+EnableDemag = false
+Msat = Ms0
+Aex = Aex0
+Dbulk = Dbk0
+Ku1 = Ku0
+anisU = vector(0, 0, 1)
+B_ext = vector(0, 0, mu0*Hz0)
+OpenBC = true
+SnapshotFormat = "png"
+m = Uniform(0, 0, 1)
+m.SetInShape(Circle(Lbox/2), Uniform(0, 0, -1))
+SaveAs(m, "m_initial.ovf")
+alpha = 1
+DoPrecess = false
+Run(5e-9)
+print("MaxTorque (T) tras Run:", MaxTorque.Get())
+//MaxTorque (T) tras Run: 6.61090415218282e-05
+Relax()
+print("MaxTorque (T) tras Relax:", MaxTorque.Get())
+//MaxTorque (T) tras Relax: 2.1109021447970252e-05
+SaveAs(m, "m_relaxed.ovf")
+SnapshotAs(m, "m_relaxed.png")
+print("<m> tras relajar:", m.Comp(0).Average(), m.Comp(1).Average(), m.Comp(2).Average())
+//<m> tras relajar: 4.880130290985108e-09 -3.073364496231079e-09 0.4288568878173828
+Vcell := csz * csz * tfilm
+Vtot := Lbox * Lbox * tfilm
+Ref_Z := -1.03472186e-18
+Ref_K := 2.0433559e-19
+Ref_ex := 1.74383742e-18
+Ref_D := -4.35058832e-18
+EZ_mx3 := E_Zeeman.Get()
+EK_mx3 := E_anis.Get()
+Dbulk = 0
+Eex_mx3 := E_exch.Get()
+Dbulk = Dbk0
+Eexdmi := E_exch.Get()
+ED_mx3 := Eexdmi - Eex_mx3
+EK_ub := EK_mx3 + Ku0*Vtot
+print("=========== Energias (J) ===========")
+//=========== Energias (J) ===========
+print("Zeeman      MuMax3:", EZ_mx3, " ref Ubermag:", Ref_Z)
+//Zeeman      MuMax3: -1.0347215e-18  ref Ubermag: -1.03472186e-18
+print("Anisotropia (conv. Ubermag):", EK_ub, " ref Ubermag:", Ref_K)
+//Anisotropia (conv. Ubermag): 2.0433562499999989e-19  ref Ubermag: 2.0433559e-19
+print("Intercambio MuMax3:", Eex_mx3, " ref Ubermag:", Ref_ex)
+//Intercambio MuMax3: 1.7438395000000003e-18  ref Ubermag: 1.74383742e-18
+print("DMI (OpenBC=true):", ED_mx3, " ref Ubermag:", Ref_D)
+//DMI (OpenBC=true): -4.3505912500000006e-18  ref Ubermag: -4.35058832e-18
+OpenBC = false
+Dbulk = 0
+Eex_neu := E_exch.Get()
+Dbulk = Dbk0
+ED_neu := E_exch.Get() - Eex_neu
+OpenBC = true
+print("DMI con Neumann (informativo):", ED_neu)
+//DMI con Neumann (informativo): -7.255508500000001e-18
+Fprintln("energies.txt", "# termino  MuMax3_J  referencia_Ubermag_J")
+Fprintln("energies.txt", "Zeeman", EZ_mx3, Ref_Z)
+Fprintln("energies.txt", "Anisotropia_conv_Ubermag", EK_ub, Ref_K)
+Fprintln("energies.txt", "Intercambio", Eex_mx3, Ref_ex)
+Fprintln("energies.txt", "DMI_OpenBC_true", ED_mx3, Ref_D)
+Fprintln("energies.txt", "DMI_Neumann_informativo", ED_neu, 0)
+m = Uniform(0, 0, 1)
+m.SetInShape(Circle(Lbox/2), Uniform(0, 0, -1))
+alpha = 1
+DoPrecess = false
+GammaLL = 0.5 * 2.21276148e5 / mu0
+SetSolver(1)
+FixDt = 1e-12
+t0 := t
+Steps(100)
+SaveAs(m, "m_euler.ovf")
+print("Euler 1 ps: t-t0 (s):", t-t0, " <m>:", m.Comp(0).Average(), m.Comp(1).Average(), m.Comp(2).Average())
+//Euler 1 ps: t-t0 (s): 1.0000000000003067e-10  <m>: 2.3655593395233155e-09 1.080334186553955e-09 0.5151056671142578
+m = Uniform(0, 0, 1)
+m.SetInShape(Circle(Lbox/2), Uniform(0, 0, -1))
+FixDt = 2e-13
+t1 := t
+Steps(500)
+SaveAs(m, "m_euler_dt02ps.ovf")
+print("Euler 0.2 ps: t-t1 (s):", t-t1, " <m>:", m.Comp(0).Average(), m.Comp(1).Average(), m.Comp(2).Average())
+//Euler 0.2 ps: t-t1 (s): 1.0000000000003067e-10  <m>: 2.8498470783233643e-09 2.0489096641540527e-10 0.5155074310302734
+//********************************************************************//
+//Please cite the following references, relevant for your simulation. //
+//See bibtex file in output folder for justification.                 //
+//********************************************************************//
+//   * Vansteenkiste et al., AIP Adv. 4, 107133 (2014).

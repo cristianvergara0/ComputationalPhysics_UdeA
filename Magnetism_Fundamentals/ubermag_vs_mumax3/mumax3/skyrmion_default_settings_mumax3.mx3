@@ -1,0 +1,82 @@
+// skyrmion_default_settings_mumax3.mx3
+//
+// El problema de skyrmion_energy_terms_mumax3.mx3 con dos ajustes de MuMax3 en su valor por defecto:
+//   OpenBC = false: frontera de Neumann del DMI, que en esta pelicula de una celda en z equivale a
+//       anadir -D^2/(2A) (mx^2 + my^2) a la energia (anisotropia efectiva K' = K - D^2/(2A) < 0).
+//   GammaLL sin dividir entre 2 en el Euler: con DoPrecess=false, MuMax3 integra
+//       -gamma0 m x (m x H) sin el factor alpha/(1+alpha^2) = 1/2 del notebook, y el paso de 1 ps
+//       queda fuera de la region de estabilidad del Euler explicito.
+// Sus estados son los de la figura fig_skyrmion_mumax3_default_settings.png (seccion 8.4 del notebook
+// del skyrmion). Sin estas salidas, plot_skyrmion_states.py dibuja replicas en numpy de los dos casos.
+//
+// Resultado de la ejecucion del 31-oct-2026 (MuMax3 3.12, GPU RTX 5060 Laptop):
+//   OpenBC = false, GammaLL = 1.7595e11 rad/(T s); MaxTorque tras Relax = 3.1e-7 T; <mz> = 0.22771, el
+//   equilibrio con K' de la replica en numpy a 1.6e-6 por celda; Euler 1 ps: <mz> = 0.2487, con una
+//   modulacion en tablero de ajedrez.
+//
+// Ejecucion:     mumax3 -vet skyrmion_default_settings_mumax3.mx3
+//                mumax3 -f skyrmion_default_settings_mumax3.mx3
+// Salida:        skyrmion_default_settings_mumax3.out/ (m_relaxed_neumann.ovf, m_euler_default.ovf,
+//                energies_neumann.txt, log.txt)
+// Comprobacion:  python ../scripts/validate_skyrmion_numpy.py
+// Requiere una GPU NVIDIA.
+
+Lbox := 100e-9
+tfilm := 5e-9
+csz := 5e-9
+Ms0 := 3.84e5
+Aex0 := 8.78e-12
+Dbk0 := 1.58e-3
+Ku0 := 1e4
+Hz0 := 1e5
+
+SetGridSize(20, 20, 1)
+SetCellSize(csz, csz, tfilm)
+SetPBC(1, 1, 0)
+EnableDemag = false
+Msat = Ms0
+Aex = Aex0
+Dbulk = Dbk0
+Ku1 = Ku0
+anisU = vector(0, 0, 1)
+B_ext = vector(0, 0, mu0*Hz0)
+// OpenBC conserva su valor por defecto (false): frontera de Neumann del DMI
+
+print("OpenBC:", OpenBC, " GammaLL (rad/(T s)):", GammaLL)
+
+// 1. Equilibrio con la frontera de Neumann, con la misma relajacion que el script principal
+m = Uniform(0, 0, 1)
+m.SetInShape(Circle(Lbox/2), Uniform(0, 0, -1))
+alpha = 1
+DoPrecess = false
+Run(5e-9)
+print("MaxTorque (T) tras Run:", MaxTorque.Get())
+Relax()
+print("MaxTorque (T) tras Relax:", MaxTorque.Get())
+SaveAs(m, "m_relaxed_neumann.ovf")
+print("<m> tras relajar:", m.Comp(0).Average(), m.Comp(1).Average(), m.Comp(2).Average())
+
+// Energias de ese equilibrio. E_exch de MuMax3 incluye la DMI y el termino de frontera; la DMI se
+// separa apagando Dbulk. La anisotropia se pasa a la convencion de Ubermag (K|m x u|^2).
+Vtot := Lbox * Lbox * tfilm
+EZ := E_Zeeman.Get()
+EK := E_anis.Get() + Ku0*Vtot
+Dbulk = 0
+Eex := E_exch.Get()
+Dbulk = Dbk0
+ED := E_exch.Get() - Eex
+Fprintln("energies_neumann.txt", "# termino  MuMax3_J  (equilibrio con la frontera de Neumann)")
+Fprintln("energies_neumann.txt", "Zeeman", EZ)
+Fprintln("energies_neumann.txt", "Anisotropia_conv_Ubermag", EK)
+Fprintln("energies_neumann.txt", "Intercambio", Eex)
+Fprintln("energies_neumann.txt", "DMI_Neumann", ED)
+
+// 2. Euler explicito del notebook (100 pasos de 1 ps) con GammaLL por defecto y la frontera de Neumann
+m = Uniform(0, 0, 1)
+m.SetInShape(Circle(Lbox/2), Uniform(0, 0, -1))
+SetSolver(1)
+FixDt = 1e-12
+t0 := t
+Steps(100)
+SaveAs(m, "m_euler_default.ovf")
+print("Euler 1 ps (GammaLL por defecto): t-t0 (s):", t-t0, " <m>:", m.Comp(0).Average(), m.Comp(1).Average(), m.Comp(2).Average())

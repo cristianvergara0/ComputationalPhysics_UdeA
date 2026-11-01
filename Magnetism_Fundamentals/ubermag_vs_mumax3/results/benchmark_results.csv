@@ -1,0 +1,5 @@
+caso,enfoque,repeticiones,mediana_s,min_s,max_s,sesion
+micromagnetic_energy_terms_skyrmion,Ubermag+OOMMF (notebook completo),3,89.76248989999294,89.7031086999923,91.26997080000001,2026-10-31 20:38
+micromagnetic_energy_terms_skyrmion,MuMax3 (script completo),3,3.4801703999983147,3.3714733999950113,3.583851899995352,2026-10-31 20:38
+torque_magnetometry_uniaxial_box,Ubermag+OOMMF (notebook completo),3,470.39689389998966,470.02898679999635,471.1886627000058,2026-10-31 20:38
+torque_magnetometry_uniaxial_box,MuMax3 (script completo),3,1.4886192999983905,1.4792015999992145,1.5737823999952525,2026-10-31 20:38

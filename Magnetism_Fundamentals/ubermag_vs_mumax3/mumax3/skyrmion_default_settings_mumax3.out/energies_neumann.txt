@@ -1,0 +1,5 @@
+# termino  MuMax3_J  (equilibrio con la frontera de Neumann)
+Zeeman -5.4940925000000005e-19
+Anisotropia_conv_Ubermag 3.4446724999999993e-19
+Intercambio 2.1683170000000004e-18
+DMI_Neumann -9.388519e-18

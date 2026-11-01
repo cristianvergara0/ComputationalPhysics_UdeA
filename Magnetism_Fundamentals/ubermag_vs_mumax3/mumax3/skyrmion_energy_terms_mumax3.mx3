@@ -1,0 +1,130 @@
+// skyrmion_energy_terms_mumax3.mx3
+//
+// Equivalente en MuMax3 del notebook micromagnetic_energy_terms_skyrmion.ipynb (ejemplo Field operations 2
+// de Ubermag): pelicula de 100 x 100 x 5 nm (20 x 20 x 1 celdas de 5 nm, periodica en x e y) con
+// intercambio, DMI de volumen (clase T), anisotropia uniaxial y Zeeman, sin campo desmagnetizante.
+// Relaja el skyrmion, calcula la energia de cada termino, la compara con las referencias de la
+// documentacion de Ubermag y repite la integracion de Euler explicito del notebook.
+//
+// Ajustes para resolver el mismo modelo y el mismo esquema que el notebook:
+//   OpenBC = true en todo el script. Con la frontera por defecto (Neumann), en una pelicula de una
+//       celda en z MuMax3 anade un termino -D^2/(2A) (mx^2 + my^2) que OOMMF no tiene y el equilibrio
+//       cambia (skyrmion_default_settings_mumax3.mx3 y seccion 8.4 del notebook).
+//   GammaLL en el Euler: con DoPrecess=false el torque de MuMax3 no lleva el factor alpha/(1+alpha^2) = 1/2
+//       del notebook (LLNoPrecess no recibe alpha), por eso se divide entre 2. Se parte de
+//       gamma0 = 2.21276148e5 m/(A s), el valor de mm.consts.gamma0 que usa el Euler del notebook.
+//   Relajacion: Run(5e-9) de dinamica amortiguada y despues Relax(), que continua mientras el par
+//       disminuya. MaxTorque se imprime tras cada etapa. Minimize() se probo en este problema y se
+//       detuvo lejos del equilibrio.
+//
+// Resultado de la ejecucion del 31-oct-2026 (MuMax3 3.12, GPU RTX 5060 Laptop):
+//   MaxTorque = 6.6e-5 T tras Run y 2.1e-5 T tras Relax: no baja mas porque el skyrmion circular es un
+//   punto de silla y el redondeo de precision simple excita su modo inestable (seccion 8.2 del notebook);
+//   <mz> = 0.42886; energias iguales a las de Ubermag con diferencias relativas <= 1.2e-6;
+//   Euler 1 ps: <mz> = 0.5151, el estado del notebook con una diferencia maxima de 8.3e-8 por celda;
+//   Euler 0.2 ps: <mz> = 0.5155.
+//
+// Ejecucion:     mumax3 -vet skyrmion_energy_terms_mumax3.mx3     (solo comprueba la sintaxis)
+//                mumax3 -f skyrmion_energy_terms_mumax3.mx3
+// Salida:        skyrmion_energy_terms_mumax3.out/ (m_initial.ovf, m_relaxed.ovf, m_relaxed.png,
+//                m_euler.ovf, m_euler_dt02ps.ovf, energies.txt, log.txt)
+// Comprobacion:  python ../scripts/validate_skyrmion_numpy.py
+// Requiere una GPU NVIDIA.
+
+Lbox := 100e-9
+tfilm := 5e-9
+csz := 5e-9
+Ms0 := 3.84e5
+Aex0 := 8.78e-12
+Dbk0 := 1.58e-3
+Ku0 := 1e4
+Hz0 := 1e5
+
+SetGridSize(20, 20, 1)
+SetCellSize(csz, csz, tfilm)
+SetPBC(1, 1, 0)
+EnableDemag = false
+Msat = Ms0
+Aex = Aex0
+Dbulk = Dbk0
+Ku1 = Ku0
+anisU = vector(0, 0, 1)
+B_ext = vector(0, 0, mu0*Hz0)
+OpenBC = true   // sin correccion de frontera del DMI, como OOMMF
+SnapshotFormat = "png"
+
+m = Uniform(0, 0, 1)
+m.SetInShape(Circle(Lbox/2), Uniform(0, 0, -1))
+SaveAs(m, "m_initial.ovf")
+
+// Relajacion en dos etapas: 5 ns de dinamica amortiguada (el esquema del notebook, con solver
+// adaptativo) y despues Relax(), que continua mientras el par disminuya.
+alpha = 1
+DoPrecess = false
+Run(5e-9)
+print("MaxTorque (T) tras Run:", MaxTorque.Get())
+Relax()
+print("MaxTorque (T) tras Relax:", MaxTorque.Get())
+SaveAs(m, "m_relaxed.ovf")
+SnapshotAs(m, "m_relaxed.png")
+print("<m> tras relajar:", m.Comp(0).Average(), m.Comp(1).Average(), m.Comp(2).Average())
+
+Vcell := csz * csz * tfilm
+Vtot := Lbox * Lbox * tfilm
+Ref_Z := -1.03472186e-18
+Ref_K := 2.0433559e-19
+Ref_ex := 1.74383742e-18
+Ref_D := -4.35058832e-18
+
+EZ_mx3 := E_Zeeman.Get()
+EK_mx3 := E_anis.Get()
+Dbulk = 0
+Eex_mx3 := E_exch.Get()
+Dbulk = Dbk0
+Eexdmi := E_exch.Get()
+ED_mx3 := Eexdmi - Eex_mx3
+EK_ub := EK_mx3 + Ku0*Vtot   // convencion de Ubermag: K|m x u|^2
+
+print("=========== Energias (J) ===========")
+print("Zeeman      MuMax3:", EZ_mx3, " ref Ubermag:", Ref_Z)
+print("Anisotropia (conv. Ubermag):", EK_ub, " ref Ubermag:", Ref_K)
+print("Intercambio MuMax3:", Eex_mx3, " ref Ubermag:", Ref_ex)
+print("DMI (OpenBC=true):", ED_mx3, " ref Ubermag:", Ref_D)
+
+// Solo informativo: la misma DMI con la frontera de Neumann de MuMax3 (sobre este mismo estado)
+OpenBC = false
+Dbulk = 0
+Eex_neu := E_exch.Get()
+Dbulk = Dbk0
+ED_neu := E_exch.Get() - Eex_neu
+OpenBC = true
+print("DMI con Neumann (informativo):", ED_neu)
+
+Fprintln("energies.txt", "# termino  MuMax3_J  referencia_Ubermag_J")
+Fprintln("energies.txt", "Zeeman", EZ_mx3, Ref_Z)
+Fprintln("energies.txt", "Anisotropia_conv_Ubermag", EK_ub, Ref_K)
+Fprintln("energies.txt", "Intercambio", Eex_mx3, Ref_ex)
+Fprintln("energies.txt", "DMI_OpenBC_true", ED_mx3, Ref_D)
+Fprintln("energies.txt", "DMI_Neumann_informativo", ED_neu, 0)
+
+// Euler explicito del notebook: 100 pasos de 1 ps
+m = Uniform(0, 0, 1)
+m.SetInShape(Circle(Lbox/2), Uniform(0, 0, -1))
+alpha = 1
+DoPrecess = false
+GammaLL = 0.5 * 2.21276148e5 / mu0   // gamma0 del notebook, a la mitad: sin precesion MuMax3 no incluye alpha/(1+alpha^2) = 1/2
+SetSolver(1)
+FixDt = 1e-12
+t0 := t
+Steps(100)
+SaveAs(m, "m_euler.ovf")
+print("Euler 1 ps: t-t0 (s):", t-t0, " <m>:", m.Comp(0).Average(), m.Comp(1).Average(), m.Comp(2).Average())
+
+// Ensayo de convergencia en el paso: mismo tiempo total con un paso 5 veces menor
+m = Uniform(0, 0, 1)
+m.SetInShape(Circle(Lbox/2), Uniform(0, 0, -1))
+FixDt = 2e-13
+t1 := t
+Steps(500)
+SaveAs(m, "m_euler_dt02ps.ovf")
+print("Euler 0.2 ps: t-t1 (s):", t-t1, " <m>:", m.Comp(0).Average(), m.Comp(1).Average(), m.Comp(2).Average())

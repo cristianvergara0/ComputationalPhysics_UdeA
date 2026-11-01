@@ -1,0 +1,60 @@
+//mumax 3.12 [windows_amd64 go1.26.0(gc) CUDA-12.9]
+//commit hash: 6e5c98bb
+//CPU info: Unknown, Error: exec: "wmic": executable file not found in %PATH%
+//GPU info: NVIDIA GeForce RTX 5060 Laptop GPU(8123MB), CUDA Driver 13.5, cc=12.0, using cc=120 PTX
+//OS  info: Windows OS, Hostname: Ashborn
+//Timestamp: 2026-10-31 20:03:59
+//(c) Arne Vansteenkiste, Dynamat LAB, Ghent University, Belgium
+//This is free software without any warranty. See license.txt
+//********************************************************************//
+//  If you use mumax in any work or publication,                      //
+//  we kindly ask you to cite the references in references.bib        //
+//********************************************************************//
+//output directory: torque_magnetometry_mumax3.out/
+Ms0 := 9.65e5
+Aex0 := 8.78e-13
+Ku0 := 1.18e6
+Hmag := 2.38e6
+Bmag := mu0 * Hmag
+SetGridSize(60, 60, 20)
+SetCellSize(5e-9, 5e-9, 5e-9)
+Msat = Ms0
+Aex = Aex0
+Ku1 = Ku0
+anisU = vector(0, 0, 1)
+B_ext = vector(0, 0, 0)
+SnapshotFormat = "png"
+m = Uniform(0, 0, 1)
+Minimize()
+SaveAs(m, "m_relaxed_zero_field.ovf")
+SnapshotAs(m, "m_relaxed_zero_field.png")
+print("<m> a campo cero:", m.Comp(0).Average(), m.Comp(1).Average(), m.Comp(2).Average())
+//<m> a campo cero: 1.0099675920274522e-10 -4.2385525173611113e-10 0.9978158637152778
+Fprintln("torque_vs_angle.txt", "# angulo_rad  tau_x  tau_y  tau_z   [N/m2 = J/m3]")
+taumax := -1e30
+taumin := 1e30
+for k := 0.0; k < 71; k++ {
+	phi := 2 * pi * k / 70
+	By := Bmag * sin(phi)
+	Bz := Bmag * cos(phi)
+	B_ext = vector(0, By, Bz)
+	Minimize()
+	mx := m.Comp(0).Average()
+	my := m.Comp(1).Average()
+	mz := m.Comp(2).Average()
+	tx := Ms0 * (my*Bz - mz*By)
+	ty := Ms0 * (-mx * Bz)
+	tz := Ms0 * (mx * By)
+	Fprintln("torque_vs_angle.txt", phi, tx, ty, tz)
+	taumax = max(taumax, tx)
+	taumin = min(taumin, tx)
+}
+SaveAs(m, "m_last_angle.ovf")
+print("tau_x maximo (N/m2):", taumax, " minimo:", taumin, " K =", Ku0)
+//tau_x maximo (N/m2): 948733.5513923921  minimo: -948733.5408791989  K = 1.18e+06
+//********************************************************************//
+//Please cite the following references, relevant for your simulation. //
+//See bibtex file in output folder for justification.                 //
+//********************************************************************//
+//   * Exl et al., J. Appl. Phys. 115, 17D118 (2014).
+//   * Vansteenkiste et al., AIP Adv. 4, 107133 (2014).

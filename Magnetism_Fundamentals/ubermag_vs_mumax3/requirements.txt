@@ -1,0 +1,9 @@
+# Scripts de la carpeta scripts/ y pruebas de tests/ (Python >= 3.10)
+numpy>=1.24
+matplotlib>=3.7
+pillow>=9.0          # solo para digitalizar la figura guardada de Ubermag (validate_torque_macrospin.py --notebook)
+nbformat>=5.7        # benchmark
+nbclient>=0.7        # benchmark
+pytest>=7.0          # pruebas
+# Los notebooks requieren Ubermag y mag2exp, que se instalan con conda (environment.yml o README).
+# MuMax3 se instala aparte y necesita una GPU NVIDIA.
