@@ -5,5 +5,7 @@ pillow>=9.0          # solo para digitalizar la figura guardada de Ubermag (vali
 nbformat>=5.7        # benchmark
 nbclient>=0.7        # benchmark
 pytest>=7.0          # pruebas
+scipy>=1.10          # calculador en Numba (transformadas de Fourier)
+numba>=0.59          # calculador en Numba
 # Los notebooks requieren Ubermag y mag2exp, que se instalan con conda (environment.yml o README).
 # MuMax3 se instala aparte y necesita una GPU NVIDIA.

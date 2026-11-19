@@ -1,6 +1,8 @@
 # Carpetas de trabajo que OOMMF crea al ejecutar los notebooks (system.name)
 skyrmion/
 Box2/
+skyrmion_oommf/
+Box2_oommf/
 
 # Archivo de la interfaz web que MuMax3 escribe en cada carpeta de salida
 mumax3/*.out/gui
